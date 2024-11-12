@@ -1,0 +1,22 @@
+FTP
+DHCP
+
+Ansible/AWX
+
+Kubernetes
+Database
+
+Gitlab
+
+Netbox
+
+local docker compose PostgreSQL
+
+
+ollama
+
+
+--------------------------------
+
+n8n
+pyvmomi

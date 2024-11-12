@@ -1,0 +1,31 @@
+site_name: Integration Automation System
+docs_dir: docs
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - search.suggest
+    - search.highlight
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: getting-started/installation.md
+    - Configuration: getting-started/configuration.md
+  - User Guide:
+    - Project Creation: user-guide/project-creation.md
+    - Document Upload: user-guide/document-upload.md
+  - Developer Guide:
+    - Frontend Components: developer-guide/frontend.md
+    - Database Schema: developer-guide/database.md
+  - Automation:
+    - ZTP Setup: automation/ztp.md
+    - Ansible Playbooks: automation/ansible.md
+
+# Coming Soon:
+# - Network Configuration Guide
+# - Architecture Documentation
+# - API Reference
+# - Documentation Generation Guide
