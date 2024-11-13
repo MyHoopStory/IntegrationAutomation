@@ -43,7 +43,10 @@ var/
 .env.development.local
 .env.test.local
 .env.production.local
+
+#Terraform
 *.tfvars
+/.terraform
 
 # Debug
 npm-debug.log*
