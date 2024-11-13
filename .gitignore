@@ -43,6 +43,7 @@ var/
 .env.development.local
 .env.test.local
 .env.production.local
+*.tfvars
 
 # Debug
 npm-debug.log*

@@ -1,39 +1,176 @@
-provider "vsphere" {
-  user           = var.vcenter_username
-  password       = var.vcenter_password
-  vsphere_server = vcenter_server
+resource "null_resource" "get_vcenter_token" {
+  provisioner "local-exec" {
+    command = "bash get_token.sh"
+  }
+}
 
-  # If using self-signed certs
+provider "vsphere" {
+  user           = "ansible@vsphere.local"
+  password       = "Password@123"
+  vsphere_server = "10.77.248.50"
   allow_unverified_ssl = true
 }
 
-# Define the data source for the template VM
-data "vsphere_virtual_machine" "template" {
-  name          = "var.vm_template"
-  datacenter_id = "your_datacenter_id"
+# Datacenter data source
+data "vsphere_datacenter" "dc" {
+  name = var.datacenter
 }
 
-# Define the virtual machine resource
-resource "vsphere_virtual_machine" "vm" {
-  name             = "test-vm"
-  resource_pool_id = "your_resource_pool_id"
-  datastore_id     = "your_datastore_id"
-  num_cpus         = 2
-  memory           = 4096
-  guest_id         = "ubuntu64Guest"
+# vSphere network data source to get the network ID
+data "vsphere_network" "network" {
+  name          = var.network
+  datacenter_id = data.vsphere_datacenter.dc.id
+}
+
+# Datastore data source
+data "vsphere_datastore" "ds" {
+  name          = var.datastore
+  datacenter_id = data.vsphere_datacenter.dc.id
+}
+
+# Reference the template VM using a data source
+data "vsphere_virtual_machine" "template" {
+  name          = var.vm_template
+  datacenter_id = data.vsphere_datacenter.dc.id
+}
+
+# Compute Cluster data source
+data "vsphere_compute_cluster" "cluster" {
+  name          = var.resource_pool
+  datacenter_id = data.vsphere_datacenter.dc.id
+}
+
+
+resource "vsphere_virtual_machine" "k3s_master" {
+  count             = length(var.k3s_master_vm_names)
+  name              = var.k3s_master_vm_names[count.index]
+  datastore_id      = data.vsphere_datastore.ds.id
+  resource_pool_id = data.vsphere_compute_cluster.cluster.resource_pool_id
+  num_cpus          = 2
+  memory            = 4096
+  guest_id          = "ubuntu64Guest"
+
   network_interface {
-    network_id   = "your_network_id"
+    network_id   = data.vsphere_network.network.id
     adapter_type = "vmxnet3"
+    mac_address  = "00:50:56:a9:${count.index}:00:00"  # Unique MAC address for worker
   }
 
   disk {
-    label            = "disk0"
-    size             = 20
-    eagerly_scrub    = false
+    label           = "disk0"
+    size            = 64
     thin_provisioned = true
   }
 
   clone {
     template_uuid = data.vsphere_virtual_machine.template.id
+
+    customize {
+      linux_options {
+        host_name = "k3s-master-${count.index}"
+        domain    = "lvic-techlab.com"
+      }
+
+      network_interface {
+        ipv4_address = "10.77.250.21${count.index + 1}"  # Static IPs 10.77.250.211-10.77.250.213
+        ipv4_netmask = 24
+      }
+
+      ipv4_gateway = "10.77.250.1"
+    }
   }
+}
+
+
+# Define K3s Worker VM using the customization
+resource "vsphere_virtual_machine" "k3s_workers" {
+  count             = length(var.k3s_worker_vm_names)
+  name              = var.k3s_worker_vm_names[count.index]
+  datastore_id      = data.vsphere_datastore.ds.id
+  resource_pool_id = data.vsphere_compute_cluster.cluster.resource_pool_id
+  num_cpus          = 2
+  memory            = 4096
+  guest_id          = "ubuntu64Guest"
+
+  network_interface {
+    network_id   = data.vsphere_network.network.id
+    adapter_type = "vmxnet3"
+    mac_address  = "00:50:56:a9:${count.index + 3}:00:00"  # Unique MAC address for worker
+  }
+
+  disk {
+    label           = "disk0"
+    size            = 64
+    thin_provisioned = true
+  }
+
+  clone {
+    template_uuid = data.vsphere_virtual_machine.template.id
+    
+    customize {
+      linux_options {
+        host_name = "k3s-worker-${count.index}"
+        domain     = "lvic-techlab.com"
+      }
+
+      network_interface {
+        ipv4_address = "10.77.250.21${count.index + 4}"  # Static IPs 10.77.250.214-10.77.250.215
+        ipv4_netmask = 24
+      }
+
+      ipv4_gateway = "10.77.250.1"
+    }
+  }
+}
+
+
+# Define PostgreSQL DB VM using the customization
+resource "vsphere_virtual_machine" "postgresql_db" {
+  name              = var.postgresql_vm_name
+  datastore_id      = data.vsphere_datastore.ds.id
+  resource_pool_id = data.vsphere_compute_cluster.cluster.resource_pool_id
+  num_cpus          = 2
+  memory            = 4096
+  guest_id          = "ubuntu64Guest"
+
+  network_interface {
+    network_id   = data.vsphere_network.network.id
+    adapter_type = "vmxnet3"
+    mac_address  = "00:50:56:a9:a6:00:00"
+  }
+
+  disk {
+    label           = "disk0"
+    size            = 64
+    thin_provisioned = true
+  }
+
+  clone {
+    template_uuid = data.vsphere_virtual_machine.template.id
+
+    customize {
+      linux_options {
+        host_name = "postgresql-db"
+        domain    = "lvic-techlab.com"
+      }
+
+      network_interface {
+        ipv4_address = "10.77.250.216"  # Static IP for PostgreSQL DB
+        ipv4_netmask = 24
+      }
+
+      ipv4_gateway = "10.77.250.1"
+    }
+  }
+}
+
+
+# Add a delay to wait for the VMs to be fully provisioned and their IPs to be assigned
+resource "time_sleep" "wait_for_ips" {
+  depends_on = [
+    vsphere_virtual_machine.k3s_master,
+    vsphere_virtual_machine.k3s_workers,
+    vsphere_virtual_machine.postgresql_db,
+  ]
+  create_duration = "5m"  # Adjust as necessary for your environment
 }
