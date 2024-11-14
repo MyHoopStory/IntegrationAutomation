@@ -17,21 +17,70 @@ A comprehensive automation system for network integration projects, combining Re
 
 **Process Overview:**
 
-1. **User Portal Access:** Users access the web portal to create and manage network integration projects
-2. **Document Processing:** Document parsing and form field automation (AI-powered features coming soon)
-3. **Project Configuration:** Users input or validate project details including:
-   - Network configurations (VLANs, VSANs)
-   - Server requirements
-   - Infrastructure specifications
-4. **Automation Pipeline:**
-   - Zero-Touch Provisioning (ZTP) for network devices
-   - Automated network configuration via Ansible
-   - Virtual infrastructure deployment through vCenter
-5. **Documentation Generation:** Automated creation of project documentation and network diagrams
+1.**User Portal Access:** Users access the web portal to create and manage network integration projects
+
+2.**Document Processing:** Document parsing and form field automation (AI-powered features coming soon)
+
+3.**Project Configuration:** Users input or validate project details including:
+
+- Network configurations (VLANs, VSANs)
+- Server requirements and maintenance windows
+- Infrastructure specifications
+- Backup schedules and update strategies
+
+4.**Automation Pipeline:**
+
+- Zero-Touch Provisioning (ZTP) for network devices
+- Automated network configuration via Ansible
+- Virtual infrastructure deployment through vCenter
+- Network services configuration (DHCP, TFTP, DNS)
+
+5.**Documentation Generation:** Automated creation of project documentation and network diagrams
 
 **Outcome:**
 
-The Integration Automation System reduces manual configuration tasks by up to 80%, minimizes human error, and standardizes network integration processes across projects.
+The Integration Automation System reduces manual configuration tasks, minimizes human error, and standardizes network integration processes across projects.
+
+
+## User Workflow
+
+1. **Initial Project Setup**
+
+   - Log into the web portal
+   - Create a new integration project
+   - Upload customer network documentation (if available)
+2. **Document Processing & Configuration**
+
+   - System automatically extracts network configurations from uploaded documents *
+   - Review and validate extracted information
+   - Manually input or adjust configuration details:
+     * Network settings (VLANs, IP ranges)
+     * Server configurations
+3. **Infrastructure Configuration**
+
+   - Configure network devices
+   - Set up virtual machines
+4. **Automation & Deployment**
+
+   - System generates Ansible playbooks
+   - Initiates Zero-Touch Provisioning (ZTP)
+   - Deploys virtual infrastructure
+   - Configures network devices
+5. **Validation & Documentation**
+
+   - System performs automated testing
+   - Validates network connectivity
+   - Verifies server configurations
+   - Generates as-built documentation
+   - Creates network diagrams
+6. **Ongoing Management**
+
+   - Monitor deployment status
+   - View system health metrics
+   - Access generated documentation
+   - Track configuration changes
+
+*Automatic document parsing and form completion via A.I. coming soon
 
 ## Core Features
 
@@ -46,8 +95,8 @@ The Integration Automation System reduces manual configuration tasks by up to 80
 - **Frontend**: Next.js/React
 - **Backend**: Python/Flask
 - **Database**: PostgreSQL
-- **Automation**: Ansible, Python scripts
-- ****AI**: Ollama (coming soon)**
+- **Automation**: Ansible, Python scripts, Terraform, AWX
+- ****AI**: **Ollama **(coming soon)**
 - **Documentation**: MkDocs
 
 ## Getting Started

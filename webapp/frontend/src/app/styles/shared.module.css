@@ -5,6 +5,9 @@
   --tcgt-blue: #004E98;
   --tcgt-gray: #F5F5F5;
   font-family: 'Poppins', sans-serif;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 0 2rem;
 }
 
 .nav {
@@ -46,7 +49,8 @@
   background-color: var(--tcgt-gray);
   padding: 2rem;
   border-radius: 15px;
-  margin: 0 2rem;
+  margin: 0 auto;
+  max-width: 1400px;
 }
 
 .card {
@@ -66,16 +70,18 @@
 
 .cardImageWrapper {
   width: 100%;
-  height: 200px;
+  height: 300px;
   position: relative;
   background-color: var(--tcgt-gray);
   padding: 1rem;
+  overflow: hidden;
 }
 
 .cardImage {
   width: 100%;
   height: 100%;
   object-fit: contain;
+  transition: transform 0.2s ease;
 }
 
 .cardBody {

@@ -110,13 +110,15 @@ const Home = () => {
             </div>
             <div className="col-md-6">
               <div className={`card ${styles.card}`}>
-                <Image 
-                  src="/images/Let-s-Move-Forward.png"
-                  alt="Let's Move Forward"
-                  width={300}
-                  height={200}
-                  className={styles.cardImage}
-                />
+                <div className={styles.cardImageWrapper}>
+                  <Image 
+                    src="/images/Let-s-Move-Forward.png"
+                    alt="Let's Move Forward"
+                    width={400}
+                    height={300}
+                    className={styles.cardImage}
+                  />
+                </div>
                 <div className={`card-body ${styles.cardBody}`}>
                   <h5 className={styles.cardTitle}>Integration Lab and Warehouse</h5>
                   <p className="card-text">The Integration Center (IC) is a dedicated facility designed for systems integration, storage, assembly, configuration, and testing.</p>
