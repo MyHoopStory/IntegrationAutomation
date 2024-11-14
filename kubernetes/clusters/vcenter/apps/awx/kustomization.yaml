@@ -1,8 +1,9 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-namespace: lvic-webapp
+namespace: awx
 resources:
   - namespace.yaml
-  - deployment.yaml
+  - operator.yaml
+  - awx.yaml
   - service.yaml
-  - ingress.yaml 
+  - admin-secret.yaml 

@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: docs
-  namespace: default
+  namespace: mkdocs
 spec:
   replicas: 1
   selector:

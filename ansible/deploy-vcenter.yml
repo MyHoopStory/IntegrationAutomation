@@ -20,7 +20,7 @@
       
     - name: Wait for VMs to be ready
       ansible.builtin.pause:
-        seconds: 30
+        seconds: 180
         prompt: "Waiting for VMs to be fully operational..."
 
     - name: Deploy K3s cluster

@@ -1,0 +1,35 @@
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: mongodb
+  namespace: mongodb
+spec:
+  interval: 5m
+  chart:
+    spec:
+      chart: mongodb
+      version: "13.x.x"
+      sourceRef:
+        kind: HelmRepository
+        name: bitnami
+        namespace: flux-system
+  values:
+    architecture: replicaset
+    replicaCount: 3
+    auth:
+      rootPassword: "${MONGODB_ROOT_PASSWORD}"
+      username: "${MONGODB_USERNAME}"
+      password: "${MONGODB_PASSWORD}"
+      database: lvic
+    persistence:
+      enabled: true
+      size: 10Gi
+    metrics:
+      enabled: true
+    resources:
+      requests:
+        memory: "1Gi"
+        cpu: "500m"
+      limits:
+        memory: "2Gi"
+        cpu: "1000m"

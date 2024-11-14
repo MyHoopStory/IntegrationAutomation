@@ -24,7 +24,7 @@ spec:
     - web
     - websecure
   routes:
-    - match: Host(`lvic.lvic-techlab.com`)
+    - match: Host(`innovation.lvic-techlab.com`)
       kind: Rule
       middlewares:
         - name: redirect-https

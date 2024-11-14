@@ -5,6 +5,7 @@ provider "registry.terraform.io/hashicorp/null" {
   version = "3.2.3"
   hashes = [
     "h1:+AnORRgFbRO6qqcfaQyeX80W0eX3VmjadjnUFUJTiXo=",
+    "h1:I0Um8UkrMUb81Fxq/dxbr3HLP2cecTH2WMJiwKSrwQY=",
     "zh:22d062e5278d872fe7aed834f5577ba0a5afe34a3bdac2b81f828d8d3e6706d2",
     "zh:23dead00493ad863729495dc212fd6c29b8293e707b055ce5ba21ee453ce552d",
     "zh:28299accf21763ca1ca144d8f660688d7c2ad0b105b7202554ca60b02a3856d3",
@@ -24,6 +25,7 @@ provider "registry.terraform.io/hashicorp/time" {
   version = "0.12.1"
   hashes = [
     "h1:6BhxSYBJdBBKyuqatOGkuPKVenfx6UmLdiI13Pb3his=",
+    "h1:JzYsPugN8Fb7C4NlfLoFu7BBPuRVT2/fCOdCaxshveI=",
     "zh:090023137df8effe8804e81c65f636dadf8f9d35b79c3afff282d39367ba44b2",
     "zh:26f1e458358ba55f6558613f1427dcfa6ae2be5119b722d0b3adb27cd001efea",
     "zh:272ccc73a03384b72b964918c7afeb22c2e6be22460d92b150aaf28f29a7d511",
@@ -43,6 +45,7 @@ provider "registry.terraform.io/hashicorp/vsphere" {
   version = "2.10.0"
   hashes = [
     "h1:ARwZGuls+TBnJ7ZSQiHhQPNxR8upZ1uR0xEXfgEMjlU=",
+    "h1:F0tX4A+w9DpxIj6+BMSEZ+H86EaNNgLYlOI7ksB71mM=",
     "zh:01dfd5bee0824de89202dc8689beef7465ddf1a104269826e69918e61bc40161",
     "zh:0fa82a384b25a58b65523e0ea4768fa1212b1f5cfc0c9379d31162454fedcc9d",
     "zh:171f9cd2008c75455b6797c7d0ca92fcdf23fb4dd47030e0e2eb4fa06cf45a57",

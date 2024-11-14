@@ -1,20 +1,69 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: webapp
-  namespace: default
+  name: webapp-frontend
+  namespace: lvic-webapp
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: webapp
+      app: webapp-frontend
   template:
     metadata:
       labels:
-        app: webapp
+        app: webapp-frontend
     spec:
       containers:
-      - name: webapp
-        image: your-webapp-image:latest
+      - name: frontend
+        image: ${REGISTRY}/frontend:${TAG}
         ports:
-        - containerPort: 80
+        - containerPort: 3000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webapp-backend
+  namespace: lvic-webapp
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: webapp-backend
+  template:
+    metadata:
+      labels:
+        app: webapp-backend
+    spec:
+      containers:
+      - name: backend
+        image: ${REGISTRY}/backend:${TAG}
+        ports:
+        - containerPort: 5001
+        env:
+        - name: MONGODB_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: mongodb-credentials
+              key: username
+        - name: MONGODB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mongodb-credentials
+              key: password
+        - name: MONGODB_DATABASE
+          valueFrom:
+            secretKeyRef:
+              name: mongodb-credentials
+              key: database
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5001
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5001
+          initialDelaySeconds: 5
+          periodSeconds: 5

@@ -3,7 +3,28 @@ To deploy:
 - Netbox
 - ollama
 - AWX
+- Container Labs
 - Warehouse Management System / Inventory System
+
+
+THings to do:
+- Update DNS records (including traefik stuff)
+- Update the page.js with images and/or backgrounds
+- Clean up project submission and view pages
+- Configure AWX integration (APIs, job templates, etc.)
+- Automation page be a link to awx?
+- Add user roles and permissions
+- Determine backup solution (S3)
+- Determine monitoring solution (Prometheus)
+- Determine alerting solution (Loki)
+- Alternative storage (Mongo or other NoSql)?
+  - NoSQL (MongoDB) in the k3s cluster to store integration project data
+  - SQL (Postgresql) outside cluster to store warehouse data
+  - Daily sync from mongo to postgresql or 
+- Certificates/Domain
+- CI/CD pipeline
+- Design or implement a warehouse management system 
+
 
 # AWX Integration Guide
 
@@ -58,10 +79,12 @@ Using AWX in your project as an automation hub is a great approach for managing 
 
 ## Summary
 This comprehensive setup enables AWX to serve as your central automation hub within the web app. The integration provides full control over automation processes through API integration, enabling easy triggering, monitoring, and reporting of job executions directly from the app interface. This approach ensures efficient deployments while maintaining proper tracking and application of all customer configurations.
+Recommended Approach
+If your PostgreSQL database stores a significant amount of structured data for customer configurations (like IPs, VLANs, device info), a custom dynamic inventory script or synchronization script via the AWX API would likely be the best approach. These methods allow AWX to pull inventory and variables in a structured, repeatable way without modifying each playbook.
 
 
 
-Infrastructure MDocs
+Infrastructure MKDocs
 nav:
   - Infrastructure:
     - Overview: infrastructure/overview.md
@@ -85,3 +108,16 @@ nav:
       - Secret Management: infrastructure/security/secrets.md
       - Compliance: infrastructure/security/compliance.md
 
+Warehosue Management System
+Open Source Options:
+- Odoo
+- OpenWMS (github)
+- MyWMS LOS
+- Open Warehouse
+- Ordoro
+Commercial Options:
+- Airtable
+- NetSuite
+Greenfield
+- Mirror of NS
+- Map warehouse floorplan

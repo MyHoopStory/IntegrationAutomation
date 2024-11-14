@@ -41,7 +41,6 @@ A comprehensive automation system for network integration projects, combining Re
 
 The Integration Automation System reduces manual configuration tasks, minimizes human error, and standardizes network integration processes across projects.
 
-
 ## User Workflow
 
 1. **Initial Project Setup**
@@ -138,13 +137,6 @@ docker compose up
    git checkout -b feature/your-feature-name
    ```
 
-### Code Standards
-
-- Python: Follow PEP 8 style guide
-- JavaScript: Use ESLint and Prettier configurations
-- Document new functions and components
-- Update relevant documentation when making changes
-
 ### Testing
 
 - Run existing tests before submitting changes
@@ -161,4 +153,4 @@ For questions about development, contact the project maintainers.
 
 ## Documentation
 
-Full documentation is available in the `/docs` directory and can be accessed through MkDocs at http://localhost:8000 when running locally.
+Full documentation is available in the `/docs` directory and can be accessed through MkDocs at http://localhost:8000 or docs.lvic-techlab.com when running locally.

@@ -21,11 +21,8 @@ const Home = () => {
           Warehouse Tracking
         </Link>
         <Link 
-          href="#" 
-          className="flex-sm-fill text-sm-center nav-link disabled"
-          data-bs-toggle="tooltip" 
-          data-bs-placement="bottom" 
-          data-bs-title="Coming Soon!"
+          href="/automation-hub" 
+          className="flex-sm-fill text-sm-center nav-link"
         >
           Automation Hub
         </Link>

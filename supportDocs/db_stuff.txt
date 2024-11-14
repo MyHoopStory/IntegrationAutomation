@@ -1,0 +1,16 @@
+PostgreSQL
+- Outside of k3s cluster
+- Store warehouse data
+- Managed via terraform/Ansible
+
+MongoDB
+- Inside k3s cluster
+- Store integration project data
+- Managed ansible/helm chart
+
+Linked by project ID (SO#?)
+
+Material is ordered and warehouse tracker is filled with all logistical information. Inventory can be found within SO or PO#. Integration project information is often provided later and can be submitted on the webapp and then linked to the warehouse tracker by project ID. Would need to find a way to aggregate multiple tracker lines, PO#s, SO#s, and integration project data into a single project.
+
+
+

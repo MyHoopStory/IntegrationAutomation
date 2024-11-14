@@ -1,0 +1,14 @@
+apiVersion: awx.ansible.com/v1beta1
+kind: AWX
+metadata:
+  name: awx
+  namespace: awx
+spec:
+  service_type: ClusterIP
+  ingress_type: ingress
+  hostname: awx.lvic-techlab.com
+  admin_user: admin
+  admin_password_secret: awx-admin-password
+  ingress_annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    kubernetes.io/ingress.class: traefik
