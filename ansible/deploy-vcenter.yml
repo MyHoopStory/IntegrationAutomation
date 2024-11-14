@@ -1,0 +1,27 @@
+---
+- name: Deploy K3s Cluster on vCenter
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Ensure Terraform is installed
+      ansible.builtin.command: terraform --version
+      register: terraform_check
+      changed_when: false
+      ignore_errors: true
+
+    - name: Deploy VMs using Terraform
+      ansible.builtin.shell:
+        cmd: |
+          cd terraform/terraform-vm-provisioning
+          terraform init
+          terraform apply -auto-approve
+        chdir: "{{ playbook_dir }}"
+      register: terraform_output
+      
+    - name: Wait for VMs to be ready
+      ansible.builtin.pause:
+        seconds: 30
+        prompt: "Waiting for VMs to be fully operational..."
+
+    - name: Deploy K3s cluster
+      ansible.builtin.include_playbook: site.yml 

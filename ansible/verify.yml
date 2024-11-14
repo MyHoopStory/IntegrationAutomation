@@ -1,0 +1,33 @@
+ ---
+- name: Verify Deployment Steps
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Verify Container Images
+      ansible.builtin.command:
+        cmd: docker images
+      register: images_result
+      failed_when: images_result.rc != 0
+      changed_when: false
+
+    - name: Verify Terraform State
+      ansible.builtin.command:
+        cmd: terraform show
+        chdir: terraform/terraform-vm-provisioning
+      register: terraform_result
+      failed_when: terraform_result.rc != 0
+      changed_when: false
+
+    - name: Verify K3s Cluster
+      ansible.builtin.command:
+        cmd: kubectl get nodes
+      register: k3s_result
+      failed_when: k3s_result.rc != 0
+      changed_when: false
+
+    - name: Verify Flux Installation
+      ansible.builtin.command:
+        cmd: flux check
+      register: flux_result
+      failed_when: flux_result.rc != 0
+      changed_when: false

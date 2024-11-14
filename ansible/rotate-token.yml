@@ -1,0 +1,30 @@
+---
+- name: Rotate K3s Token
+  hosts: k3s_master
+  tasks:
+    - name: Update node-token file
+      ansible.builtin.copy:
+        content: "{{ new_k3s_token }}"
+        dest: /var/lib/rancher/k3s/server/node-token
+        mode: "0600"
+        
+    - name: Restart k3s service
+      ansible.builtin.systemd:
+        name: k3s
+        state: restarted
+
+- name: Update Worker Nodes
+  hosts: k3s_worker
+  tasks:
+    - name: Update k3s service with new token
+      ansible.builtin.template:
+        src: k3s_agent/templates/k3s.service.j2
+        dest: "{{ systemd_dir }}/k3s.service"
+        mode: "0644"
+      vars:
+        k3s_token: "{{ new_k3s_token }}"
+
+    - name: Restart k3s agent
+      ansible.builtin.systemd:
+        name: k3s
+        state: restarted 

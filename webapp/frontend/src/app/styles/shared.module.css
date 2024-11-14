@@ -1,0 +1,114 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Dancing+Script:wght@400;700&display=swap');
+
+.wrapper {
+  --tcgt-orange: #FF6700;
+  --tcgt-blue: #004E98;
+  --tcgt-gray: #F5F5F5;
+  font-family: 'Poppins', sans-serif;
+}
+
+.nav {
+  background-color: var(--tcgt-gray);
+  border-radius: 0.5rem;
+  margin: 1rem;
+}
+
+.nav :global(.nav-link) {
+  color: var(--tcgt-blue);
+  margin: 0.25rem;
+  border-radius: 0.25rem;
+  transition: all 0.3s ease;
+}
+
+.nav :global(.nav-link:hover) {
+  background-color: var(--tcgt-orange);
+  color: var(--tcgt-white);
+}
+
+.nav :global(.nav-link.active) {
+  background-color: var(--tcgt-blue) !important;
+  color: var(--tcgt-white) !important;
+}
+
+.nav :global(.nav-link.disabled) {
+  color: #6c757d;
+  cursor: not-allowed;
+}
+
+.tagLine {
+  font-family: 'Dancing Script', cursive;
+  font-weight: 700;
+  color: var(--tcgt-blue);
+  font-size: 2.5rem;
+}
+
+.cardContainer {
+  background-color: var(--tcgt-gray);
+  padding: 2rem;
+  border-radius: 15px;
+  margin: 0 2rem;
+}
+
+.card {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(5px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  border: none;
+  border-radius: 10px;
+  overflow: hidden;
+  transition: transform 0.2s ease;
+  height: 100%;
+}
+
+.card:hover {
+  transform: translateY(-5px);
+}
+
+.cardImageWrapper {
+  width: 100%;
+  height: 200px;
+  position: relative;
+  background-color: var(--tcgt-gray);
+  padding: 1rem;
+}
+
+.cardImage {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.cardBody {
+  padding: 1.5rem;
+}
+
+.cardTitle {
+  color: var(--tcgt-blue);
+  margin-bottom: 1rem;
+  font-size: 1.25rem;
+  border-bottom: 2px solid var(--tcgt-orange);
+  padding-bottom: 0.5rem;
+}
+
+.listItem {
+  padding: 0.75rem 1.5rem;
+  border-color: var(--tcgt-gray);
+  font-size: 0.9rem;
+}
+
+.sectionTitle {
+  color: var(--tcgt-blue);
+  font-weight: 600;
+  text-decoration: underline;
+  margin-bottom: 2rem;
+  font-family: 'Poppins', sans-serif;
+}
+
+.mainCard {
+  position: relative;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(5px);
+  margin-bottom: 2rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}

@@ -1,0 +1,9 @@
+mirrors:
+  "ghcr.io":
+    endpoint:
+      - "https://ghcr.io"
+configs:
+  "ghcr.io":
+    auth:
+      username: "{{ lookup('env', 'GITHUB_USERNAME') }}"
+      password: "{{ lookup('env', 'GITHUB_TOKEN') }}" 

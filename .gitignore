@@ -1,17 +1,25 @@
 # Dependencies
-/node_modules
+node_modules/
 /.pnp
 .pnp.js
+jspm_packages/
 
 # Testing
 /coverage
+.coverage
+.pytest_cache/
+htmlcov/
 
 # Next.js
-/.next/
-/out/
+.next/
+out/
+.vercel
+next-env.d.ts
+.env*.local
 
 # Production
 /build
+/dist
 
 # Python
 __pycache__/
@@ -34,39 +42,82 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
+pip-log.txt
+pip-delete-this-directory.txt
 
 # Misc
 .DS_Store
+Thumbs.db
 *.pem
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+*.log
 
-#Terraform
+# Terraform
 *.tfvars
-/.terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraformrc
+terraform.rc
 
-# Debug
+# Debug logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+.pnpm-debug.log*
 
 # IDE
 .idea/
 .vscode/
 *.swp
 *.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-workspace
+*.sublime-project
 
 # Docker
 docker-compose.override.yml
+*.env
 
 # Virtual Environment
 venv/
 .venv/
 ENV/
+.env/
+.python-version
 
 # Database
 *.sqlite
 *.db
+
+# Documentation
+site/
+docs/_build/
+
+# Ansible
+*.retry
+ansible/secrets.env
+ansible/*.env
+
+# Kubernetes
+kubeconfig
+*.kubeconfig
+
+# Certificates
+*.pem
+*.key
+*.crt
+*.cer
+*.der
+*.priv
+
+# Logs
+logs/
+*.log

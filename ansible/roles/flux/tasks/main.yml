@@ -1,0 +1,26 @@
+---
+- name: Install Flux CLI
+  ansible.builtin.get_url:
+    url: "https://github.com/fluxcd/flux2/releases/latest/download/flux_{{ ansible_system | lower }}_amd64.tar.gz"
+    dest: /tmp/flux.tar.gz
+    mode: '0755'
+
+- name: Extract Flux CLI
+  ansible.builtin.unarchive:
+    src: /tmp/flux.tar.gz
+    dest: /usr/local/bin
+    remote_src: yes
+
+- name: Bootstrap Flux
+  ansible.builtin.command:
+    cmd: >-
+      flux bootstrap github 
+      --owner={{ lookup('env', 'FLUX_GITHUB_OWNER') }} 
+      --repository={{ lookup('env', 'FLUX_REPO_NAME') }} 
+      --branch=main 
+      --path={{ lookup('env', 'FLUX_GITHUB_PATH') }} 
+      --personal
+  environment:
+    GITHUB_TOKEN: "{{ lookup('env', 'GITHUB_TOKEN') }}"
+    KUBECONFIG: "/etc/rancher/k3s/k3s.yaml"
+  when: ansible_hostname == hostvars[groups['k3s_master'][0]]['ansible_hostname'] 

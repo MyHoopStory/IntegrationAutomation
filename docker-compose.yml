@@ -3,51 +3,30 @@ version: '3'
 services:
   backend:
     build:
-      context: .  # Set the context to the 'app' directory
-      dockerfile: ./app/Dockerfile
+      context: ./webapp/backend  # Set the context to the 'app' directory
+      dockerfile: Dockerfile
     ports:
       - "5001:5001"
     networks:
       - app-network
     volumes:
-      - ./app:/app  # Mount the 'app' folder
+      - ./webapp/backend:/app  # Mount the 'app' folder
     environment:
       - FLASK_ENV=development
 
   frontend:
       build:
-        context: ./my-app  # The frontend app's directory
+        context: ./webapp/frontend  # The frontend app's directory
         dockerfile: Dockerfile  # The Dockerfile should be in 'my-app'
       ports:
         - "3000:3000"  # Expose port 3000 for the frontend
       networks:
       - app-network
       volumes:
-        - ./my-app:/app  # Mount the frontend code to the container
+        - ./webapp/frontend:/app  # Mount the frontend code to the container
       command: npm run dev  # Run the Next.js app in development mode
       environment:
         - NODE_ENV=development
-
-  tftp:
-    image: taskinen/tftp
-    platform: linux/amd64
-    ports:
-      - "69:69/udp"
-    networks:
-      - app-network
-    volumes:
-      - ./ztp/tftp:/var/tftpboot
-
-  isc-dhcp-server:
-    image: networkboot/dhcpd
-    ports:
-      - "68:67/udp"
-    networks:
-      - app-network
-    volumes:
-      - ./ztp/dhcpd.conf:/etc/dhcp/dhcpd.conf  # Update this line
-      - ./ztp/data:/data
-
   docs:
     build:
       context: ./docs

@@ -1,0 +1,27 @@
+---
+- name: Install Flux
+  when: ansible_hostname == hostvars[groups[group_name_master | default('master')][0]]['ansible_hostname']
+  run_once: true
+  block:
+    - name: Download Flux CLI
+      ansible.builtin.get_url:
+        url: "https://github.com/fluxcd/flux2/releases/latest/download/flux_{{ ansible_system | lower }}_amd64.tar.gz"
+        dest: /tmp/flux.tar.gz
+        mode: '0755'
+
+    - name: Extract Flux CLI
+      ansible.builtin.unarchive:
+        src: /tmp/flux.tar.gz
+        dest: /usr/local/bin
+        remote_src: yes
+
+    - name: Bootstrap Flux
+      ansible.builtin.command:
+        cmd: flux bootstrap github --owner={{ flux_github_owner }} --repository={{ flux_repo_name }} --branch=main --path=kubernetes/clusters/vcenter --personal
+      environment:
+        GITHUB_TOKEN: "{{ lookup('env', 'GITHUB_TOKEN') }}" 
+
+- name: Deploy Flux
+  ansible.builtin.include_tasks: flux.yml
+  tags: flux
+  when: flux_enabled | default(true) | bool 

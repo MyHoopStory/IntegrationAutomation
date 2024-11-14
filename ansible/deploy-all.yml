@@ -1,0 +1,64 @@
+---
+- name: Deploy Complete Infrastructure and Applications
+  hosts: localhost
+  gather_facts: false
+  pre_tasks:
+    - name: Install required collections
+      ansible.builtin.command:
+        cmd: ansible-galaxy collection install -r collections/requirements.yml
+      changed_when: true
+      check_mode: false
+
+    - name: Verify Docker daemon is running
+      ansible.builtin.command:
+        cmd: docker info
+      register: docker_check
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Fail if Docker is not running
+      ansible.builtin.fail:
+        msg: "Docker daemon is not running. Please start Docker and try again."
+      when: docker_check.rc != 0
+
+  tasks:
+    - name: Build and Push Container Images
+      block:
+        - ansible.builtin.include_tasks: tasks/build_images.yml
+      rescue:
+        - name: Log Image Build Failure
+          ansible.builtin.debug:
+            msg: "Failed to build images. Check Docker daemon and credentials."
+        - ansible.builtin.fail:
+            msg: "Image build failed"
+
+    - name: Deploy Infrastructure
+      block:
+        - ansible.builtin.include_tasks: deploy-vcenter.yml
+      rescue:
+        - name: Capture Terraform Logs
+          ansible.builtin.command:
+            cmd: terraform show
+            chdir: terraform/terraform-vm-provisioning
+          register: tf_logs
+        - ansible.builtin.fail:
+            msg: "Infrastructure deployment failed. Terraform logs: {{ tf_logs.stdout }}"
+
+    - name: Deploy K3s Cluster
+      block:
+        - ansible.builtin.include_tasks: site.yml
+      rescue:
+        - name: Gather K3s Logs
+          ansible.builtin.command:
+            cmd: journalctl -u k3s
+          register: k3s_logs
+        - ansible.builtin.fail:
+            msg: "K3s deployment failed. Logs: {{ k3s_logs.stdout }}"
+
+    - name: Deploy Documentation
+      block:
+        - ansible.builtin.include_tasks: tasks/deploy_docs.yml
+      rescue:
+        - ansible.builtin.fail:
+            msg: "Documentation deployment failed"

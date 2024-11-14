@@ -1,0 +1,15 @@
+---
+- name: Create directory /etc/rancher/k3s
+  ansible.builtin.file:
+    path: /etc/{{ item }}
+    state: directory
+    mode: "0755"
+  loop:
+    - rancher
+    - rancher/k3s
+
+- name: Configure registry authentication
+  ansible.builtin.template:
+    src: registries.yaml.j2
+    dest: /etc/rancher/k3s/registries.yaml
+    mode: "0600"

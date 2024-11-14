@@ -1,0 +1,32 @@
+---
+- name: Build Frontend Image
+  community.docker.docker_image:
+    build:
+      path: ../webapp
+      dockerfile: Dockerfile.prod
+      target: frontend
+    name: "ghcr.io/{{ lookup('env', 'GITHUB_USERNAME') }}/webapp-frontend"
+    tag: latest
+    push: true
+    source: build
+
+- name: Build Backend Image
+  community.docker.docker_image:
+    build:
+      path: ../webapp
+      dockerfile: Dockerfile.prod
+      target: backend
+    name: "ghcr.io/{{ lookup('env', 'GITHUB_USERNAME') }}/webapp-backend"
+    tag: latest
+    push: true
+    source: build
+
+- name: Build Documentation Image
+  community.docker.docker_image:
+    build:
+      path: ../docs
+      dockerfile: Dockerfile
+    name: "ghcr.io/{{ lookup('env', 'GITHUB_USERNAME') }}/docs"
+    tag: latest
+    push: true
+    source: build 

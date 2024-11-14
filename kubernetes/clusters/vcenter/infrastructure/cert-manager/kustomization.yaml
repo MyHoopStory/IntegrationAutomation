@@ -1,0 +1,8 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - infrastructure/cert-manager
+  - infrastructure/traefik
+  - apps/webapp
+  - apps/docs
+  - apps/awx

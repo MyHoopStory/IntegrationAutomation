@@ -20,9 +20,30 @@ nav:
   - Developer Guide:
     - Frontend Components: developer-guide/frontend.md
     - Database Schema: developer-guide/database.md
+  - Infrastructure:
+    - Terraform:
+      - VM Provisioning: infrastructure/terraform/vm-provisioning.md
+      - Network Setup: infrastructure/terraform/network-setup.md
   - Automation:
     - ZTP Setup: automation/ztp.md
-    - Ansible Playbooks: automation/ansible.md
+    - Ansible:
+      - Overview: automation/ansible/overview.md
+      - Playbooks: automation/ansible/playbooks.md
+      - Roles: automation/ansible/roles.md
+      - Collections: automation/ansible/collections.md
+    - Kubernetes:
+      - K3s Setup: automation/kubernetes/k3s.md
+      - Flux CD: automation/kubernetes/flux.md
+      - Networking: automation/kubernetes/networking.md
+  - Applications:
+    - Overview: applications/overview.md
+    - Frontend: applications/frontend.md
+    - Backend: applications/backend.md
+    - Databases:
+      - PostgreSQL: applications/databases/postgresql.md
+    - Network Services:
+      - DHCP: applications/network/dhcp.md
+      - TFTP: applications/network/tftp.md
 
 # Coming Soon:
 # - Network Configuration Guide
