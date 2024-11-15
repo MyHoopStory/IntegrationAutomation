@@ -22,7 +22,7 @@ export POSTGRES_PASSWORD=$(openssl rand -hex 16)  # Generate random password
 export POSTGRES_DB="k3s"
 
 # Flux configuration
-export GITHUB_TOKEN="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"
+export GITHUB_TOKEN="${GH_TOKEN}"
 export FLUX_GITHUB_OWNER="MyHoopStory"
 export FLUX_REPO_NAME="IntegrationAutomation"
 
