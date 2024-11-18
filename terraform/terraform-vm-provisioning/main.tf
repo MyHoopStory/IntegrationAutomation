@@ -79,6 +79,29 @@ resource "vsphere_virtual_machine" "k3s_master" {
       ipv4_gateway = "10.77.250.1"
     }
   }
+
+  extra_config = {
+    "guestinfo.userdata" = base64encode(<<-EOT
+      #cloud-config
+      users:
+        - name: serveradmin
+          sudo: ALL=(ALL) NOPASSWD:ALL
+          shell: /bin/bash
+          ssh_authorized_keys:
+            - ${file("/home/ansible/.ssh/id_rsa.pub")}
+    EOT
+    )
+    "guestinfo.userdata.encoding" = "base64"
+    "guestinfo.metadata" = base64encode(<<-EOT
+      network:
+        version: 2
+        ethernets:
+          ens192:
+            dhcp4: false
+    EOT
+    )
+    "guestinfo.metadata.encoding" = "base64"
+  }
 }
 
 
@@ -121,6 +144,29 @@ resource "vsphere_virtual_machine" "k3s_workers" {
       ipv4_gateway = "10.77.250.1"
     }
   }
+
+  extra_config = {
+    "guestinfo.userdata" = base64encode(<<-EOT
+      #cloud-config
+      users:
+        - name: serveradmin
+          sudo: ALL=(ALL) NOPASSWD:ALL
+          shell: /bin/bash
+          ssh_authorized_keys:
+            - ${file("/home/ansible/.ssh/id_rsa.pub")}
+    EOT
+    )
+    "guestinfo.userdata.encoding" = "base64"
+    "guestinfo.metadata" = base64encode(<<-EOT
+      network:
+        version: 2
+        ethernets:
+          ens192:
+            dhcp4: false
+    EOT
+    )
+    "guestinfo.metadata.encoding" = "base64"
+  }
 }
 
 
@@ -162,6 +208,29 @@ resource "vsphere_virtual_machine" "postgresql_db" {
       ipv4_gateway = "10.77.250.1"
     }
   }
+
+  extra_config = {
+    "guestinfo.userdata" = base64encode(<<-EOT
+      #cloud-config
+      users:
+        - name: serveradmin
+          sudo: ALL=(ALL) NOPASSWD:ALL
+          shell: /bin/bash
+          ssh_authorized_keys:
+            - ${file("/home/ansible/.ssh/id_rsa.pub")}
+    EOT
+    )
+    "guestinfo.userdata.encoding" = "base64"
+    "guestinfo.metadata" = base64encode(<<-EOT
+      network:
+        version: 2
+        ethernets:
+          ens192:
+            dhcp4: false
+    EOT
+    )
+    "guestinfo.metadata.encoding" = "base64"
+  }
 }
 
 
@@ -172,5 +241,5 @@ resource "time_sleep" "wait_for_ips" {
     vsphere_virtual_machine.k3s_workers,
     vsphere_virtual_machine.postgresql_db,
   ]
-  create_duration = "5m"  # Adjust as necessary for your environment
+  create_duration = "10m"  # Adjust as necessary for your environment
 }

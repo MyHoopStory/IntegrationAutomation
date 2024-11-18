@@ -24,3 +24,33 @@
     GITHUB_TOKEN: "{{ lookup('env', 'GH_TOKEN') }}"
     KUBECONFIG: "/etc/rancher/k3s/k3s.yaml"
   when: ansible_hostname == hostvars[groups['k3s_master'][0]]['ansible_hostname'] 
+
+- name: Check k3s server status
+  ansible.builtin.command: k3s check-ready
+  register: k3s_status
+  ignore_errors: true
+  changed_when: false
+
+- name: Debug k3s status
+  ansible.builtin.debug:
+    var: k3s_status
+  when: k3s_status.rc != 0
+
+- name: Init cluster inside the transient k3s-init service
+  ansible.builtin.command:
+    cmd: systemd-run -p RestartSec=2 -p Restart=on-failure --unit=k3s-init k3s server --cluster-init {{ server_init_args | default('') }}
+    creates: "{{ systemd_dir }}/k3s-init.service"
+  register: init_result
+  when: inventory_hostname == groups[group_name_master][0]
+  failed_when: 
+    - init_result.rc != 0
+    - "'already exists' not in init_result.stderr"
+
+- name: Wait for API server to be available
+  ansible.builtin.wait_for:
+    host: "{{ apiserver_endpoint }}"
+    port: 6443
+    timeout: 600
+  retries: 10
+  delay: 30
+  when: inventory_hostname != groups[group_name_master][0]

@@ -23,14 +23,14 @@
 - name: Configure the k3s service
   ansible.builtin.template:
     src: k3s.service.j2
-    dest: "{{ systemd_dir }}/k3s-node.service"
+    dest: "{{ systemd_dir }}/k3s.service"
     owner: root
     group: root
-    mode: "0755"
+    mode: "0644"
 
 - name: Manage k3s service
   ansible.builtin.systemd:
-    name: k3s-node
+    name: k3s
     daemon_reload: true
     state: restarted
     enabled: true

@@ -1,15 +1,19 @@
 ---
+- name: Reset K3s Cluster
+  hosts: all
+  gather_facts: false
+  roles:
+    - role: reset
+      become: true
+
 - name: Reset K3s Cluster on vCenter
   hosts: localhost
   gather_facts: false
   tasks:
-    - name: Reset K3s cluster
-      ansible.builtin.include_playbook: reset.yml
-
     - name: Destroy VMs using Terraform
       ansible.builtin.shell:
         cmd: |
-          cd terraform/terraform-vm-provisioning
+          terraform init
           terraform destroy -auto-approve
-        chdir: "{{ playbook_dir }}"
-      register: terraform_output 
+        chdir: "{{ playbook_dir }}/../terraform/terraform-vm-provisioning"
+      register: terraform_output

@@ -1,9 +1,10 @@
 ---
+k3s_server: true
+k3s_control_plane: true
 extra_server_args: ""
+group_name_master: k3s_master
 
 k3s_kubectl_binary: k3s kubectl
-
-group_name_master: master
 
 kube_vip_arp: true
 kube_vip_iface:
@@ -27,14 +28,17 @@ retry_count: 20
 
 # yamllint disable rule:line-length
 server_init_args: >-
-  {% if groups[group_name_master | default('master')] | length > 1 %}
-    {% if ansible_hostname == hostvars[groups[group_name_master | default('master')][0]]['ansible_hostname'] %}
-      --cluster-init
-    {% else %}
-      --server https://{{ hostvars[groups[group_name_master | default('master')][0]].k3s_node_ip | split(",") | first | ansible.utils.ipwrap }}:6443
-    {% endif %}
-    --token {{ k3s_token }}
+  {% if inventory_hostname == groups[group_name_master][0] %}
+    --cluster-init
+    {{ extra_server_args }}
+  {% else %}
+    --server https://{{ apiserver_endpoint }}:6443
+    --token {{ hostvars[groups[group_name_master][0]]['token'] }}
+    {{ extra_server_args }}
   {% endif %}
-  {{ extra_server_args }}
 
 systemd_dir: /etc/systemd/system
+
+# Cilium configuration
+cilium_bgp: false
+cilium_iface: ~

@@ -1,5 +1,5 @@
 ---
-k3s_version: v1.30.2+k3s2
+k3s_version: v1.29.1+k3s2
 ansible_user: serveradmin  # Match your vCenter template VM user
 systemd_dir: /etc/systemd/system
 system_timezone: UTC
@@ -41,8 +41,7 @@ kube_vip_tag_version: v0.8.2
 kube_vip_arp: true
 kube_vip_iface: "{{ flannel_iface }}"
 
-# Add these to your existing all.yml
-postgresql_version: "14"
+
 k3s_master_subnet: "10.77.250.0/24"  # Adjust based on your network
 k3s_worker_subnet: "10.77.250.0/24"  # Adjust based on your network
 postgresql_users:
@@ -51,8 +50,17 @@ postgresql_users:
     db: k3s
 
 # PostgreSQL Configuration
+postgresql_version: "14"
 postgresql_host: "{{ hostvars[groups['postgresql_db'][0]]['ansible_host'] }}"
 postgresql_port: 5432
 postgresql_user: "{{ lookup('env', 'POSTGRES_USER') }}"
 postgresql_password: "{{ lookup('env', 'POSTGRES_PASSWORD') }}"
 postgresql_db: "{{ lookup('env', 'POSTGRES_DB') }}"
+
+# K3s cluster configuration
+k3s_server: true
+k3s_control_plane: true
+k3s_master_taint: true
+group_name_master: "k3s_master"
+k3s_server_location: /var/lib/rancher/k3s
+k3s_server_manifests: /var/lib/rancher/k3s/server/manifests

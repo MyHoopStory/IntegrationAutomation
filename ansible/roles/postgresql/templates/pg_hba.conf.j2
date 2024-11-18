@@ -3,5 +3,6 @@ local   all            postgres                                peer
 local   all            all                                     peer
 host    all            all             127.0.0.1/32           md5
 host    all            all             ::1/128                md5
-host    all            all             {{ k3s_master_subnet }} md5
-host    all            all             {{ k3s_worker_subnet }} md5 
+{% for subnet in postgresql_allowed_subnets %}
+host    all            all             {{ subnet }}           md5
+{% endfor %} 

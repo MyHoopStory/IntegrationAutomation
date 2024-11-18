@@ -1,32 +1,47 @@
 ---
+- name: Set build variables
+  ansible.builtin.set_fact:
+    registry: "{{ lookup('env', 'REGISTRY') | default('ghcr.io/myhoopstory', true) | lower }}"
+    tag: "{{ lookup('env', 'TAG') | default('latest', true) }}"
+
 - name: Build Frontend Image
-  community.docker.docker_image:
-    build:
-      path: ../webapp
-      dockerfile: Dockerfile.prod
-      target: frontend
-    name: "ghcr.io/{{ lookup('env', 'GITHUB_USERNAME') }}/webapp-frontend"
-    tag: latest
-    push: true
-    source: build
+  ansible.builtin.shell:
+    cmd: |
+      cd {{ playbook_dir }}/../webapp
+      docker build \
+        -t {{ registry }}/webapp-frontend:{{ tag }} \
+        -f Dockerfile.prod \
+        --target frontend \
+        .
+  register: frontend_build
+  changed_when: frontend_build.rc == 0
 
 - name: Build Backend Image
-  community.docker.docker_image:
-    build:
-      path: ../webapp
-      dockerfile: Dockerfile.prod
-      target: backend
-    name: "ghcr.io/{{ lookup('env', 'GITHUB_USERNAME') }}/webapp-backend"
-    tag: latest
-    push: true
-    source: build
+  ansible.builtin.shell:
+    cmd: |
+      cd {{ playbook_dir }}/../webapp
+      docker build \
+        -t {{ registry }}/webapp-backend:{{ tag }} \
+        -f Dockerfile.prod \
+        --target backend \
+        .
+  register: backend_build
+  changed_when: backend_build.rc == 0
 
 - name: Build Documentation Image
-  community.docker.docker_image:
-    build:
-      path: ../docs
-      dockerfile: Dockerfile
-    name: "ghcr.io/{{ lookup('env', 'GITHUB_USERNAME') }}/docs"
-    tag: latest
-    push: true
-    source: build 
+  ansible.builtin.shell:
+    cmd: |
+      cd {{ playbook_dir }}/../docs
+      docker build \
+        -t {{ registry }}/docs:{{ tag }} \
+        -f Dockerfile \
+        .
+  register: docs_build
+  changed_when: docs_build.rc == 0
+
+- name: Log build results
+  ansible.builtin.debug:
+    msg: |
+      Frontend build: {{ frontend_build.rc }}
+      Backend build: {{ backend_build.rc }}
+      Docs build: {{ docs_build.rc }} 

@@ -1,27 +1,100 @@
 ---
-- name: Deploy K3s Cluster on vCenter
+- name: Deploy Infrastructure on vCenter
   hosts: localhost
   gather_facts: false
   tasks:
-    - name: Ensure Terraform is installed
-      ansible.builtin.command: terraform --version
-      register: terraform_check
-      changed_when: false
-      ignore_errors: true
+    - name: Initialize Terraform
+      ansible.builtin.command:
+        cmd: terraform init
+        chdir: "{{ playbook_dir }}/../terraform/terraform-vm-provisioning"
+      register: tf_init
+      changed_when: tf_init.rc == 0
 
-    - name: Deploy VMs using Terraform
-      ansible.builtin.shell:
-        cmd: |
-          cd terraform/terraform-vm-provisioning
-          terraform init
-          terraform apply -auto-approve
-        chdir: "{{ playbook_dir }}"
-      register: terraform_output
-      
-    - name: Wait for VMs to be ready
+    - name: Run Terraform Plan
+      ansible.builtin.command:
+        cmd: terraform plan -out=tfplan
+        chdir: "{{ playbook_dir }}/../terraform/terraform-vm-provisioning"
+      register: tf_plan
+      changed_when: tf_plan.rc == 0
+
+    - name: Apply Terraform Configuration
+      ansible.builtin.command:
+        cmd: terraform apply -auto-approve tfplan
+        chdir: "{{ playbook_dir }}/../terraform/terraform-vm-provisioning"
+      register: tf_apply
+      changed_when: tf_apply.rc == 0
+
+    - name: Ensure correct SSH key permissions
+      ansible.builtin.file:
+        path: /home/ansible/.ssh/id_rsa
+        mode: '0600'
+        state: file
+      delegate_to: localhost
+
+    - name: Ensure public key exists
+      ansible.builtin.stat:
+        path: /home/ansible/.ssh/id_rsa.pub
+      register: pubkey_file
+      delegate_to: localhost
+
+    - name: Fail if public key is missing
+      ansible.builtin.fail:
+        msg: "SSH public key not found at /home/ansible/.ssh/id_rsa.pub"
+      when: not pubkey_file.stat.exists
+      delegate_to: localhost
+
+    - name: Wait for VMs to be Ready
       ansible.builtin.pause:
-        seconds: 180
-        prompt: "Waiting for VMs to be fully operational..."
+        minutes: 5
+      when: tf_apply.changed
 
-    - name: Deploy K3s cluster
-      ansible.builtin.include_playbook: site.yml 
+    - name: Get Terraform Outputs
+      ansible.builtin.command:
+        cmd: terraform output -raw ansible_inventory
+        chdir: "{{ playbook_dir }}/../terraform/terraform-vm-provisioning"
+      register: inventory_output
+      changed_when: false
+
+    - name: Ensure inventory directory exists
+      ansible.builtin.file:
+        path: "{{ playbook_dir }}/inventory/vcenter"
+        state: directory
+        mode: '0755'
+
+    - name: Write inventory file
+      ansible.builtin.copy:
+        content: "{{ inventory_output.stdout }}"
+        dest: "{{ playbook_dir }}/inventory/vcenter/hosts.ini"
+        mode: '0644'
+
+    - name: Add StrictHostKeyChecking=no to inventory
+      ansible.builtin.lineinfile:
+        path: "{{ playbook_dir }}/inventory/vcenter/hosts.ini"
+        line: "ansible_ssh_common_args='-o StrictHostKeyChecking=no'"
+        insertafter: "[all:vars]"
+
+    - name: Display Generated Inventory
+      ansible.builtin.debug:
+        msg: "{{ lookup('file', playbook_dir + '/inventory/vcenter/hosts.ini') }}"
+
+- name: Copy SSH key to remote hosts
+  hosts: all
+  tags: ssh_setup
+  tasks:
+    - name: Ensure .ssh directory exists
+      ansible.builtin.file:
+        path: /home/serveradmin/.ssh
+        state: directory
+        mode: '0700'
+        owner: serveradmin
+        group: serveradmin
+      become: true
+
+    - name: Copy SSH key to remote hosts
+      ansible.builtin.copy:
+        src: /home/ansible/.ssh/id_rsa.pub
+        dest: /home/serveradmin/.ssh/authorized_keys
+        owner: serveradmin
+        group: serveradmin
+        mode: '0600'
+      become: true

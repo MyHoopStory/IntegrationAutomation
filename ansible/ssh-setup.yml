@@ -1,0 +1,27 @@
+---
+- name: Setup SSH Access
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Ensure .ssh directory exists with correct permissions
+      ansible.builtin.file:
+        path: /home/serveradmin/.ssh
+        state: directory
+        mode: '0700'
+        owner: serveradmin
+        group: serveradmin
+      become: true
+
+    - name: Copy SSH key with proper permissions
+      ansible.builtin.copy:
+        src: /home/ansible/.ssh/id_rsa.pub
+        dest: /home/serveradmin/.ssh/authorized_keys
+        owner: serveradmin
+        group: serveradmin
+        mode: '0600'
+        force: true
+      become: true
+
+    - name: Test SSH connection
+      ansible.builtin.ping:
+      register: ping_result 

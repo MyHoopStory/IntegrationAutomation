@@ -1,0 +1,12 @@
+   - name: Test SSH Key Copy
+     hosts: all
+     tasks:
+       - name: Copy SSH key to remote hosts
+         ansible.builtin.copy:
+           src: /home/ansible/.ssh/id_rsa.pub
+           dest: /home/serveradmin/.ssh/authorized_keys
+           owner: serveradmin
+           group: serveradmin
+           mode: '0600'
+         become: yes
+         become_user: serveradmin

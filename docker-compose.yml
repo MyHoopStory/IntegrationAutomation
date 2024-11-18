@@ -15,18 +15,19 @@ services:
       - FLASK_ENV=development
 
   frontend:
-      build:
-        context: ./webapp/frontend  # The frontend app's directory
-        dockerfile: Dockerfile  # The Dockerfile should be in 'my-app'
-      ports:
-        - "3000:3000"  # Expose port 3000 for the frontend
-      networks:
+    build:
+      context: ./webapp/frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    networks:
       - app-network
-      volumes:
-        - ./webapp/frontend:/app  # Mount the frontend code to the container
-      command: npm run dev  # Run the Next.js app in development mode
-      environment:
-        - NODE_ENV=development
+    volumes:
+      - ./webapp/frontend:/app
+      - /app/node_modules
+    command: npm run dev
+    environment:
+      - NODE_ENV=development
   docs:
     build:
       context: ./docs
