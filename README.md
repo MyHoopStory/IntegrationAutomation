@@ -154,3 +154,51 @@ For questions about development, contact the project maintainers.
 ## Documentation
 
 Full documentation is available in the `/docs` directory and can be accessed through MkDocs at http://localhost:8000 or docs.lvic-techlab.com when running locally.
+
+## Configuration
+
+### Setting Up Variables
+
+1. Copy the example files to create your actual configuration:
+   ```bash
+   cp group_vars/all/vars.example.yml group_vars/all/vars.yml
+   cp inventory/hosts.example inventory/hosts
+   ```
+
+2. Edit the copied files with your actual values:
+   - `vars.yml`: Contains all configuration variables
+   - `hosts`: Contains your inventory information
+
+### Required Variables
+
+The following variables must be set before running the playbooks:
+
+#### Network Configuration
+- `network_domain`: Your domain name
+- `ntp_servers`: List of NTP servers
+
+#### K3s Configuration
+- `k3s_version`: Version of K3s to install
+- `k3s_token`: Secure token for cluster communication
+- `k3s_server_location`: Installation directory
+
+#### Database Configuration
+- `db_host`: Database host address
+- `db_port`: Database port
+- `db_name`: Database name
+- `db_user`: Database username
+- `db_password`: Database password
+
+#### API and Security
+- `api_key`: Your API key
+- `secret_key`: Your secret key
+
+#### SMTP Configuration
+- `smtp_host`: SMTP server address
+- `smtp_port`: SMTP port
+- `smtp_user`: SMTP username
+- `smtp_password`: SMTP password
+
+### Security Note
+
+Never commit your actual variable files containing sensitive information. Always use the example files as templates and keep your real configuration secure.

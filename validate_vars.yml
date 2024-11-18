@@ -1,0 +1,13 @@
+---
+- name: Validate Required Variables
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Check if required variables are defined
+      assert:
+        that:
+          - k3s_version is defined
+          - k3s_token is defined
+          - network_domain is defined
+          # Add more variable checks
+        fail_msg: "Missing required variables. Please check vars.yml" 
