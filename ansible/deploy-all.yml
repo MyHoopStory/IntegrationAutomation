@@ -42,13 +42,13 @@
 - import_playbook: site.yml
 
 # Deploy Documentation
-- name: Deploy Documentation
-  hosts: localhost
-  gather_facts: false
-  tasks:
-    - name: Deploy Documentation
-      block:
-        - ansible.builtin.include_tasks: tasks/deploy_docs.yml
-      rescue:
-        - ansible.builtin.fail:
-            msg: "Documentation deployment failed"
+# - name: Deploy Documentation
+#   hosts: localhost
+#   gather_facts: false
+#   tasks:
+#     - name: Deploy Documentation
+#       block:
+#         - ansible.builtin.include_tasks: tasks/deploy_docs.yml
+#     rescue:
+#       - ansible.builtin.fail:
+#           msg: "Documentation deployment failed"

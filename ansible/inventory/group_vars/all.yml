@@ -28,7 +28,7 @@ extra_args: >-
 
 extra_server_args: >-
   {{ extra_args }}
-  {{ '--node-taint node-role.kubernetes.io/master=true:NoSchedule' if k3s_master_taint else '' }}
+  {{ '--node-taint node-role.kubernetes.io/master=true:NoSchedule' if master_taint else '' }}
   --tls-san {{ apiserver_endpoint }}
   --disable servicelb
   --disable traefik
@@ -42,7 +42,7 @@ kube_vip_arp: true
 kube_vip_iface: "{{ flannel_iface }}"
 
 
-k3s_master_subnet: "10.77.250.0/24"  # Adjust based on your network
+master_subnet: "10.77.250.0/24"  # Adjust based on your network
 k3s_worker_subnet: "10.77.250.0/24"  # Adjust based on your network
 postgresql_users:
   - name: k3s
@@ -60,7 +60,7 @@ postgresql_db: "{{ lookup('env', 'POSTGRES_DB') }}"
 # K3s cluster configuration
 k3s_server: true
 k3s_control_plane: true
-k3s_master_taint: true
-group_name_master: "k3s_master"
+master_taint: true
+group_name_master: "master"
 k3s_server_location: /var/lib/rancher/k3s
 k3s_server_manifests: /var/lib/rancher/k3s/server/manifests

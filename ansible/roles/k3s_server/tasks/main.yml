@@ -35,11 +35,13 @@
   ansible.builtin.systemd:
     name: k3s
     state: stopped
+  become: true
   failed_when: false
 
 - name: Clean previous runs of k3s-init # noqa command-instead-of-module
   # The systemd module does not support "reset-failed", so we need to resort to command.
   ansible.builtin.command: systemctl reset-failed k3s-init
+  become: true
   failed_when: false
   changed_when: false
 
@@ -69,6 +71,7 @@
     owner: root
     group: root
   when: not ansible_check_mode
+  become: true
 
 - name: Verify k3s binary
   ansible.builtin.stat:
@@ -141,6 +144,7 @@
   ansible.builtin.file:
     path: /var/lib/rancher/k3s/server/node-token
     mode: g+rx,o+rx
+  become: true
 
 - name: Read node-token from master
   ansible.builtin.slurp:
@@ -191,7 +195,7 @@
       ansible.builtin.command:
         cmd: "{{ k3s_kubectl_binary | default('k3s kubectl') }} get nodes -l 'node-role.kubernetes.io/control-plane=true' -o=jsonpath='{.items[*].metadata.name}'"
       register: nodes
-      until: nodes.rc == 0 and (nodes.stdout.split() | length) == (groups[group_name_master] | length + groups['k3s_control_nodes'] | length)
+      until: nodes.rc == 0 and (nodes.stdout.split() | length) == (groups[group_name_master] | length + groups['master'] | length)
       retries: "{{ retry_count | default(30) }}"
       delay: 60
       changed_when: false

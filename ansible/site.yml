@@ -91,7 +91,7 @@
       become: true
 
 - name: Setup k3s master
-  hosts: k3s_master
+  hosts: master
   vars:
     apiserver_endpoint: "10.77.250.220"
     k3s_token: "{{ lookup('env', 'K3S_TOKEN') | default('your-secure-token') }}"
@@ -101,10 +101,10 @@
       become: true
 
 - name: Setup k3s control nodes
-  hosts: k3s_control_nodes
+  hosts: master
   vars:
     apiserver_endpoint: "10.77.250.220"
-    k3s_token: "{{ hostvars[groups['k3s_master'][0]]['token'] }}"
+    k3s_token: "{{ hostvars[groups['master'][0]]['token'] }}"
     k3s_version: "v1.29.1+k3s2"
   roles:
     - role: k3s_server
@@ -112,20 +112,20 @@
       vars:
         k3s_server: true
         k3s_control_plane: true
-        group_name_master: k3s_master
+        group_name_master: master
 
 - name: Setup k3s workers
-  hosts: k3s_workers
+  hosts: node
   roles:
     - role: k3s_agent
       become: true
       vars:
         apiserver_endpoint: "{{ apiserver_endpoint }}"
-        k3s_token: "{{ hostvars[groups['k3s_master'][0]]['token'] }}"
-        group_name_master: k3s_master
+        k3s_token: "{{ hostvars[groups['master'][0]]['token'] }}"
+        group_name_master: master
 
 - name: Configure k3s cluster
-  hosts: k3s_master
+  hosts: master
   roles:
     - role: k3s_server_post
       become: true
@@ -133,7 +133,7 @@
       become: true
 
 - name: Storing kubeconfig in the playbook directory
-  hosts: k3s_master
+  hosts: master
   tasks:
     - name: Copying kubeconfig
       ansible.builtin.fetch:

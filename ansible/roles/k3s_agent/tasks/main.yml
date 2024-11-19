@@ -27,6 +27,7 @@
     owner: root
     group: root
     mode: "0644"
+  become: true
 
 - name: Manage k3s service
   ansible.builtin.systemd:
@@ -34,3 +35,4 @@
     daemon_reload: true
     state: restarted
     enabled: true
+  become: true

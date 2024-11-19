@@ -23,7 +23,7 @@
   environment:
     GITHUB_TOKEN: "{{ lookup('env', 'GH_TOKEN') }}"
     KUBECONFIG: "/etc/rancher/k3s/k3s.yaml"
-  when: ansible_hostname == hostvars[groups['k3s_master'][0]]['ansible_hostname'] 
+  when: ansible_hostname == hostvars[groups['master'][0]]['ansible_hostname'] 
 
 - name: Check k3s server status
   ansible.builtin.command: k3s check-ready

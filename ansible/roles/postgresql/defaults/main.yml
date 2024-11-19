@@ -11,5 +11,5 @@ postgresql_db: "postgres"
 # PostgreSQL network configuration
 postgresql_listen_addresses: '*'
 postgresql_allowed_subnets:
-  - "{{ k3s_master_subnet | default('10.77.250.0/24') }}"
+  - "{{ master_subnet | default('10.77.250.0/24') }}"
   - "{{ k3s_worker_subnet | default('10.77.250.0/24') }}"

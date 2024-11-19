@@ -106,7 +106,7 @@ resource "vsphere_virtual_machine" "k3s_master" {
 
 
 # Define K3s Worker VM using the customization
-resource "vsphere_virtual_machine" "k3s_workers" {
+resource "vsphere_virtual_machine" "k3s_worker" {
   count             = length(var.k3s_worker_vm_names)
   name              = var.k3s_worker_vm_names[count.index]
   datastore_id      = data.vsphere_datastore.ds.id
@@ -238,8 +238,8 @@ resource "vsphere_virtual_machine" "postgresql_db" {
 resource "time_sleep" "wait_for_ips" {
   depends_on = [
     vsphere_virtual_machine.k3s_master,
-    vsphere_virtual_machine.k3s_workers,
+    vsphere_virtual_machine.k3s_worker,
     vsphere_virtual_machine.postgresql_db,
   ]
-  create_duration = "10m"  # Adjust as necessary for your environment
+  create_duration = "1m"  # Adjust as necessary for your environment
 }

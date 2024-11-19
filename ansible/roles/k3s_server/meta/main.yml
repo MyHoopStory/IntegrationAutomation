@@ -24,7 +24,7 @@ argument_specs:
 
       group_name_master:
         description: Name of the master group
-        default: k3s_master
+        default: master
 
       k3s_create_kubectl_symlink:
         description: Create the kubectl -> k3s symlink
@@ -68,7 +68,7 @@ argument_specs:
 
       kube_vip_bgp_peers_groups:
         description: Inventory group in which to search for additional kube_vip_bgp_peers parameters to merge.
-        default: ['k3s_master']
+        default: ['master']
 
       kube_vip_iface:
         description:

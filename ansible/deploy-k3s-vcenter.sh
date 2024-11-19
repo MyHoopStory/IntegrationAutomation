@@ -48,10 +48,6 @@ if [[ -z "$MONGODB_ROOT_PASSWORD" || -z "$MONGODB_USERNAME" || -z "$MONGODB_PASS
     exit 1
 fi
 
-# Generate inventory from Terraform
-echo "Generating Ansible inventory..."
-terraform -chdir=terraform/terraform-vm-provisioning output -raw ansible_inventory > inventory/vcenter/hosts.ini
-
 # Setup SSH access
 echo "Setting up SSH access..."
 ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/deploy-vcenter.yml --tags "ssh_setup" || {

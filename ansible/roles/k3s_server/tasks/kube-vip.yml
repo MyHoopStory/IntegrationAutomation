@@ -7,6 +7,7 @@
     group: root
     mode: "0644"
   when: inventory_hostname in groups[group_name_master] and inventory_hostname == groups[group_name_master][0]
+  become: true
 
 - name: Download vip cloud provider manifest to first master
   ansible.builtin.get_url:
@@ -16,6 +17,7 @@
     group: root
     mode: "0644"
   when: inventory_hostname in groups[group_name_master] and inventory_hostname == groups[group_name_master][0]
+  become: true
 
 - name: Copy kubevip configMap manifest to first master
   ansible.builtin.template:

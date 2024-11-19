@@ -1,6 +1,6 @@
 ---
 - name: Rotate K3s Token
-  hosts: k3s_master
+  hosts: master
   tasks:
     - name: Update node-token file
       ansible.builtin.copy:

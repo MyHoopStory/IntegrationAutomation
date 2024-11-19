@@ -45,27 +45,14 @@
 
     - name: Wait for VMs to be Ready
       ansible.builtin.pause:
-        minutes: 5
+        minutes: 2
       when: tf_apply.changed
-
-    - name: Get Terraform Outputs
-      ansible.builtin.command:
-        cmd: terraform output -raw ansible_inventory
-        chdir: "{{ playbook_dir }}/../terraform/terraform-vm-provisioning"
-      register: inventory_output
-      changed_when: false
 
     - name: Ensure inventory directory exists
       ansible.builtin.file:
         path: "{{ playbook_dir }}/inventory/vcenter"
         state: directory
         mode: '0755'
-
-    - name: Write inventory file
-      ansible.builtin.copy:
-        content: "{{ inventory_output.stdout }}"
-        dest: "{{ playbook_dir }}/inventory/vcenter/hosts.ini"
-        mode: '0644'
 
     - name: Add StrictHostKeyChecking=no to inventory
       ansible.builtin.lineinfile:
