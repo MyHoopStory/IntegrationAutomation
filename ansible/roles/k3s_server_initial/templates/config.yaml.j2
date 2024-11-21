@@ -1,0 +1,1 @@
+datastore-endpoint: "postgres://{{ lookup('env', 'POSTGRES_USER') }}:{{ lookup('env', 'POSTGRES_PASSWORD') }}@{{ hostvars[groups['postgresql_db'][0]]['ansible_host'] }}:5432/{{ lookup('env', 'POSTGRES_DB') }}" 

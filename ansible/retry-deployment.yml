@@ -1,0 +1,48 @@
+---
+- name: Import Reset Playbook
+  ansible.builtin.import_playbook: reset-vcenter.yml
+  ignore_errors: false
+
+- name: Wait for Systems to Settle
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Pause for system stabilization
+      ansible.builtin.pause:
+        minutes: 2
+      when: not ansible_check_mode
+
+- name: Import Full Deployment Playbook
+  ansible.builtin.import_playbook: deploy-all.yml
+  ignore_errors: false
+
+- name: Verify Deployment
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Check K3s Cluster Status
+      ansible.builtin.command:
+        cmd: kubectl get nodes
+      register: cluster_status
+      until: cluster_status.rc == 0
+      retries: 12
+      delay: 10
+      changed_when: false
+      failed_when: false
+
+    - name: Display Cluster Status
+      ansible.builtin.debug:
+        var: cluster_status.stdout_lines
+      when: cluster_status.rc == 0
+
+    - name: Check Pod Status
+      ansible.builtin.command:
+        cmd: kubectl get pods -A
+      register: pod_status
+      when: cluster_status.rc == 0
+      changed_when: false
+
+    - name: Display Pod Status
+      ansible.builtin.debug:
+        var: pod_status.stdout_lines
+      when: cluster_status.rc == 0 

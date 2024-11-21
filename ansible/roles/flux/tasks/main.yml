@@ -54,3 +54,20 @@
   retries: 10
   delay: 30
   when: inventory_hostname != groups[group_name_master][0]
+
+- name: Check if port 6443 is in use
+  ansible.builtin.wait_for:
+    port: 6443
+    state: stopped
+    timeout: 5
+  when: inventory_hostname != groups[group_name_master][0]
+  ignore_errors: true
+  register: port_check
+
+- name: Fail if port is in use
+  ansible.builtin.fail:
+    msg: "Port 6443 is already in use on {{ inventory_hostname }}"
+  when: 
+    - inventory_hostname != groups[group_name_master][0]
+    - port_check.state is defined
+    - port_check.state != "stopped"

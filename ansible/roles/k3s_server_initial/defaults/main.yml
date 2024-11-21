@@ -4,8 +4,6 @@ k3s_control_plane: true
 extra_server_args: ""
 group_name_master: master
 
-server_ip: "{{ hostvars[groups[group_name_master][0]].ansible_default_ipv4.address }}"
-
 k3s_kubectl_binary: k3s kubectl
 
 kube_vip_arp: true

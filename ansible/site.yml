@@ -66,6 +66,13 @@
         that: ansible_version.full is version_compare('2.11', '>=')
         msg: "Ansible 2.11 or higher required"
 
+    - name: Allow Kubernetes API server port 6443
+      community.general.ufw:
+        rule: allow
+        port: 6443
+        proto: tcp
+      become: true
+
 - name: Setup PostgreSQL Database
   hosts: postgresql_db
   gather_facts: true
@@ -90,21 +97,21 @@
     - role: download
       become: true
 
-- name: Setup k3s master
-  hosts: master
+- name: Setup initial k3s master (first master node)
+  hosts: master[0]
   vars:
     apiserver_endpoint: "10.77.250.220"
     k3s_token: "{{ lookup('env', 'K3S_TOKEN') | default('your-secure-token') }}"
     k3s_version: "v1.29.1+k3s2"
   roles:
-    - role: k3s_server
+    - role: k3s_server_initial
       become: true
 
-- name: Setup k3s control nodes
-  hosts: master
+- name: Setup other k3s master nodes
+  hosts: master[1:]
   vars:
     apiserver_endpoint: "10.77.250.220"
-    k3s_token: "{{ hostvars[groups['master'][0]]['token'] }}"
+    k3s_token: "{{ hostvars['master'][0].token }}"
     k3s_version: "v1.29.1+k3s2"
   roles:
     - role: k3s_server
@@ -121,8 +128,20 @@
       become: true
       vars:
         apiserver_endpoint: "{{ apiserver_endpoint }}"
-        k3s_token: "{{ hostvars[groups['master'][0]]['token'] }}"
+        k3s_token: "{{ hostvars['master'][0].token }}"
         group_name_master: master
+
+- name: Verify all nodes have joined
+  hosts: master[0]
+  tasks:
+    - name: Verify that all nodes actually joined
+      ansible.builtin.command:
+        cmd: "{{ k3s_kubectl_binary | default('k3s kubectl') }} get nodes -l 'node-role.kubernetes.io/control-plane=true' -o=jsonpath='{.items[*].metadata.name}'"
+      register: nodes
+      until: nodes.rc == 0 and (nodes.stdout.split() | length) == (groups[group_name_master] | length + groups['master'] | length)
+      retries: "{{ retry_count | default(30) }}"
+      delay: 60
+      changed_when: false
 
 - name: Configure k3s cluster
   hosts: master
@@ -140,7 +159,7 @@
         src: "{{ ansible_user_dir }}/.kube/config"
         dest: ./kubeconfig
         flat: true
-      when: inventory_hostname in groups[group_name_master] and inventory_hostname == groups[group_name_master][0]
+      when: inventory_hostname in groups['master'] and inventory_hostname == groups['master'][0]
 
 - name: Add SSH public key to target nodes
   hosts: all
@@ -150,3 +169,25 @@
         user: serveradmin
         key: "{{ lookup('file', '/home/ansible/.ssh/id_rsa.pub') }}"
         state: present
+
+- name: Fetch k3s node-token from initial master
+  hosts: master[0]
+  become: true
+  tasks:
+    - name: Read node-token
+      slurp:
+        src: /var/lib/rancher/k3s/server/node-token
+      register: node_token_slurp
+
+    - name: Set node-token as fact
+      set_fact:
+        k3s_node_token: "{{ node_token_slurp.content | b64decode }}"
+
+- name: Change file access node-token
+  hosts: master
+  tasks:
+    - name: Change file access node-token
+      ansible.builtin.file:
+        path: /var/lib/rancher/k3s/server/node-token
+        mode: g+rx,o+rx
+      become: true

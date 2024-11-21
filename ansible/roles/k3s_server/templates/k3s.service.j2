@@ -8,24 +8,21 @@ Type=notify
 ExecStartPre=-/sbin/modprobe br_netfilter
 ExecStartPre=-/sbin/modprobe overlay
 ExecStart=/usr/local/bin/k3s server \
-  {% if inventory_hostname == groups[group_name_master][0] %} \
-  --cluster-init \
-  {% else %} \
-  --server https://{{ apiserver_endpoint }}:6443 \
-  --token {{ hostvars[groups[group_name_master][0]]['token'] | default(k3s_token) | default('') }} \
-  {% endif %} \
-  {{ server_init_args | default('') }}
+    --server https://{{ server_ip }}:6443 \
+    --token-file /var/lib/rancher/k3s/server/node-token \
+    --etcd-arg advertise-client-urls=https://{{ k3s_node_ip }}:2379 \
+    --etcd-arg initial-advertise-peer-urls=https://{{ k3s_node_ip }}:2380 \
+    --etcd-arg initial-cluster-token=k3s-etcd-cluster \
+    --etcd-arg listen-client-urls=https://0.0.0.0:2379 \
+    --etcd-arg listen-peer-urls=https://0.0.0.0:2380
 KillMode=process
 Delegate=yes
-# Having non-zero Limit*s causes performance problems due to accounting overhead
-# in the kernel. We recommend using cgroups to do container-local accounting.
+Restart=always
+RestartSec=5
 LimitNOFILE=1048576
 LimitNPROC=infinity
 LimitCORE=infinity
 TasksMax=infinity
-TimeoutStartSec=0
-Restart=always
-RestartSec=5s
 
 [Install]
 WantedBy=multi-user.target

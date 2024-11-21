@@ -1,0 +1,33 @@
+# ... (previous tasks remain the same)
+
+- name: Verify initial master is ready
+  ansible.builtin.wait_for:
+    host: "{{ groups[group_name_master][0] }}"
+    port: 6443
+    timeout: 300
+  when: inventory_hostname != groups[group_name_master][0]
+
+- name: Copy k3s service file
+  ansible.builtin.template:
+    src: "k3s.service.j2"
+    dest: "/etc/systemd/system/k3s.service"
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Enable and start k3s service
+  ansible.builtin.systemd:
+    name: k3s
+    daemon_reload: yes
+    state: started
+    enabled: yes
+  register: k3s_service_status
+
+- name: Wait for local k3s API to be ready
+  ansible.builtin.wait_for:
+    host: "127.0.0.1"
+    port: 6443
+    timeout: 180
+  when: k3s_service_status is success
+
+# ... (remaining tasks) 

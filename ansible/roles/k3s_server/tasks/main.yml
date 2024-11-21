@@ -1,4 +1,9 @@
 ---
+- name: Set k3s_node_ip
+  ansible.builtin.set_fact:
+    k3s_node_ip: "10.77.250.211"
+  when: inventory_hostname != groups[group_name_master][0]
+
 - name: Verify k3s server configuration
   ansible.builtin.assert:
     that:
@@ -6,6 +11,41 @@
       - k3s_control_plane is defined
       - group_name_master is defined
     fail_msg: "Required k3s server variables are not defined"
+
+- name: Ensure clean k3s state for secondary nodes
+  block:
+    - name: Stop k3s services
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: stopped
+      loop:
+        - k3s
+        - k3s-init
+      failed_when: false
+
+    - name: Reset failed systemd services
+      ansible.builtin.command: systemctl reset-failed {{ item }}
+      loop:
+        - k3s
+        - k3s-init
+      failed_when: false
+      changed_when: false
+
+    - name: Clean k3s directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /var/lib/rancher/k3s
+        - /etc/rancher/k3s
+        - /var/lib/kubelet
+        - /etc/kubernetes
+      ignore_errors: true
+
+    - name: Wait for cleanup
+      ansible.builtin.pause:
+        seconds: 5
+  when: inventory_hostname != groups[group_name_master][0]
 
 - name: Check if port 6443 is in use
   ansible.builtin.wait_for:
@@ -83,21 +123,75 @@
     msg: "k3s binary not found at /usr/local/bin/k3s"
   when: not k3s_binary.stat.exists
 
-- name: Init cluster inside the transient k3s-init service
-  ansible.builtin.command:
-    cmd: systemd-run -p RestartSec=2 -p Restart=on-failure --unit=k3s-init k3s server {{ server_init_args }}
-    creates: "{{ systemd_dir }}/k3s-init.service"
-
-- name: Wait for API server to be available
+- name: Wait for node-token on first master
   ansible.builtin.wait_for:
-    host: "{{ apiserver_endpoint }}"
-    port: 6443
+    path: /var/lib/rancher/k3s/server/node-token
     timeout: 300
+  when: inventory_hostname == groups[group_name_master][0]
+
+- name: Ensure token is readable on first master
+  ansible.builtin.file:
+    path: /var/lib/rancher/k3s/server/node-token
+    mode: '0644'
+    owner: root
+    group: root
+  when: inventory_hostname == groups[group_name_master][0]
+
+- name: Read node-token from first master
+  ansible.builtin.slurp:
+    src: /var/lib/rancher/k3s/server/node-token
+  register: node_token
+  when: inventory_hostname == groups[group_name_master][0]
+
+- name: Create k3s server directory structure on secondary masters
+  ansible.builtin.file:
+    path: /var/lib/rancher/k3s/server
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
   when: inventory_hostname != groups[group_name_master][0]
 
-- name: Wait for control plane stabilization
-  ansible.builtin.pause:
-    seconds: 30
+- name: Share token with secondary masters
+  ansible.builtin.set_fact:
+    k3s_token: "{{ hostvars[groups[group_name_master][0]]['token'] }}"
+  when: inventory_hostname != groups[group_name_master][0]
+
+- name: Create node-token file on secondary masters
+  ansible.builtin.copy:
+    content: "{{ k3s_token }}"
+    dest: /var/lib/rancher/k3s/server/node-token
+    mode: '0644'
+    owner: root
+    group: root
+  when: 
+    - inventory_hostname != groups[group_name_master][0]
+    - k3s_token is defined
+
+- name: Copy node-token to secondary master
+  ansible.builtin.copy:
+    src: /var/lib/rancher/k3s/server/node-token
+    dest: /var/lib/rancher/k3s/server/node-token
+    remote_src: true
+    mode: '0644'
+    owner: root
+    group: root
+  become: true
+  when: inventory_hostname != groups[group_name_master][0]
+
+# - name: Move node-token to correct location
+#   ansible.builtin.command:
+#     cmd: mv /tmp/node-token /var/lib/rancher/k3s/server/node-token
+#   become: true
+#   when: inventory_hostname != groups[group_name_master][0]
+
+- name: Set ownership and permissions for node-token
+  ansible.builtin.file:
+    path: /var/lib/rancher/k3s/server/node-token
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
   when: inventory_hostname != groups[group_name_master][0]
 
 - name: Copy K3s service file
@@ -109,23 +203,83 @@
     group: root
     mode: "0644"
 
-- name: Enable and check K3s service
-  ansible.builtin.systemd:
-    name: k3s
-    daemon_reload: true
-    state: restarted
-    enabled: true
-  register: k3s_service_result
+- name: Check for processes using port 6443
+  ansible.builtin.shell: lsof -t -i:6443
+  register: port_processes
+  failed_when: false
+  changed_when: false
   ignore_errors: true
 
-- name: Wait for control plane nodes to be ready
-  ansible.builtin.pause:
-    seconds: 120
+- name: Kill processes using port 6443
+  ansible.builtin.command: kill -9 {{ item }}
+  with_items: "{{ port_processes.stdout_lines }}"
+  when: port_processes.stdout != ""
+  ignore_errors: true
+
+- name: Wait for port 6443 to be free
+  ansible.builtin.wait_for:
+    port: 6443
+    state: stopped
+    timeout: 30
+  when: port_processes.stdout != ""
+
+- name: Kill any remaining k3s processes
+  ansible.builtin.command: pkill -9 -f "k3s/data/[^/]+/bin/containerd-shim-runc"
+  register: pkill_containerd_shim_runc
+  changed_when: pkill_containerd_shim_runc.rc == 0
+  failed_when: false
+  ignore_errors: true
   when: inventory_hostname == groups[group_name_master][0]
 
-- name: Wait for node-token
-  ansible.builtin.wait_for:
-    path: /var/lib/rancher/k3s/server/node-token
+- name: Wait for processes to die
+  ansible.builtin.pause:
+    seconds: 5
+  when: pkill_containerd_shim_runc.changed
+
+- name: Configure k3s service for secondary masters
+  ansible.builtin.template:
+    src: k3s.service.j2
+    dest: /etc/systemd/system/k3s.service
+    mode: '0644'
+  vars:
+    server_ip: "{{ groups[group_name_master][0] }}"
+    etcd_ip: "{{ groups[group_name_master][0] }}"
+  when: inventory_hostname != groups[group_name_master][0]
+
+# - name: Debug k3s service status
+#   ansible.builtin.command: systemctl status k3s
+#   register: k3s_status
+#   when: k3s_service_result is failed
+#   ignore_errors: true
+
+# - name: Debug k3s service logs
+#   ansible.builtin.command: journalctl -xeu k3s.service --no-pager -n 50
+#   register: k3s_logs
+#   when: k3s_service_result is failed
+
+# - name: Display debug information
+#   ansible.builtin.debug:
+#     msg: |
+#       K3s Service Status: {{ k3s_status.stdout }}
+#       K3s Service Logs: {{ k3s_logs.stdout }}
+#   when: k3s_service_result is failed
+
+# - name: Debug - Check certificate files
+#   ansible.builtin.stat:
+#     path: "{{ item }}"
+#   loop:
+#     - /var/lib/rancher/k3s/server/tls/client-ca.crt
+#     - /var/lib/rancher/k3s/server/tls/client-ca.key
+#     - /var/lib/rancher/k3s/server/tls/server-ca.crt
+#     - /var/lib/rancher/k3s/server/tls/server-ca.key
+#   register: cert_files
+#   when: k3s_service_result is failed
+
+# - name: Display certificate status
+#   ansible.builtin.debug:
+#     msg: "Certificate file {{ item.item }} exists: {{ item.stat.exists }}"
+#   loop: "{{ cert_files.results }}"
+#   when: k3s_service_result is failed
 
 - name: Create crictl symlink
   ansible.builtin.file:
@@ -188,43 +342,10 @@
     seconds: 180
   when: inventory_hostname == groups[group_name_master][0]
 
-- name: Verification
-  when: not ansible_check_mode and inventory_hostname in groups[group_name_master]
-  block:
-    - name: Verify that all nodes actually joined
-      ansible.builtin.command:
-        cmd: "{{ k3s_kubectl_binary | default('k3s kubectl') }} get nodes -l 'node-role.kubernetes.io/control-plane=true' -o=jsonpath='{.items[*].metadata.name}'"
-      register: nodes
-      until: nodes.rc == 0 and (nodes.stdout.split() | length) == (groups[group_name_master] | length + groups['master'] | length)
-      retries: "{{ retry_count | default(30) }}"
-      delay: 60
-      changed_when: false
-  always:
-    - name: Save logs of k3s-init.service
-      ansible.builtin.include_tasks: fetch_k3s_init_logs.yml
-      when: log_destination
-      vars:
-        log_destination: "{{ lookup('ansible.builtin.env', 'ANSIBLE_K3S_LOG_DIR', default=False) }}"
-    - name: Kill the temporary service used for initialization
-      ansible.builtin.systemd:
-        name: k3s-init
-        state: stopped
-      failed_when: false
-
-- name: Debug k3s service logs
-  ansible.builtin.command: journalctl -xeu k3s.service
-  register: k3s_logs
-  when: k3s_service_result is failed
-
-- name: Display k3s service logs
-  ansible.builtin.debug:
-    var: k3s_logs.stdout_lines
-  when: k3s_service_result is failed
-
-- name: Fail if k3s service failed to start
-  ansible.builtin.fail:
-    msg: "K3s service failed to start"
-  when: k3s_service_result is failed
+# - name: Fail if k3s service failed to start
+#   ansible.builtin.fail:
+#     msg: "K3s service failed to start"
+#   when: k3s_service_result is failed
 
 - name: Create directory .kube
   ansible.builtin.file:
@@ -262,23 +383,149 @@
     state: link
   when: k3s_create_kubectl_symlink | default(true) | bool
 
-- name: Capture k3s service logs
-  ansible.builtin.command:
-    cmd: journalctl -u k3s.service
-  register: k3s_service_logs
-  ignore_errors: true
-
 - name: Save k3s service logs to file
   ansible.builtin.copy:
     content: "{{ k3s_service_logs.stdout }}"
     dest: "/tmp/k3s_service_logs_{{ inventory_hostname }}.log"
   when: k3s_service_logs is defined
 
-- name: Fetch k3s service logs for analysis
-  ansible.builtin.fetch:
-    src: "/tmp/k3s_service_logs_{{ inventory_hostname }}.log"
-    dest: "./logs/"
-    flat: yes
-  when: k3s_service_logs is defined
+- name: Verify initial master is ready
+  ansible.builtin.shell: |
+    curl -k https://{{ apiserver_endpoint }}:6443/healthz || true
+    echo "---"
+    curl -k https://{{ apiserver_endpoint }}:6443/readyz || true
+    echo "---"
+    netstat -tlpn | grep 6443 || true
+  register: master_check
+  until: master_check.rc == 0 and master_check.stdout.find('ok') != -1
+  retries: 30
+  delay: 10
+  when: inventory_hostname != groups[group_name_master][0]
 
+# - name: Debug master verification
+#   ansible.builtin.debug:
+#     msg: |
+#       Verification output:
+#       {{ master_check.stdout_lines | default([]) }}
+#       Return code: {{ master_check.rc | default('N/A') }}
+#       Error: {{ master_check.stderr_lines | default([]) }}
+#   when: 
+#     - inventory_hostname != groups[group_name_master][0]
+#     - master_check is defined
+
+# - name: Wait for token to be available on secondary masters
+#   ansible.builtin.wait_for:
+#     path: /var/lib/rancher/k3s/server/node-token
+#     timeout: 300
+#   when: 
+#     - inventory_hostname != groups[group_name_master][0]
+#     - k3s_token is defined
+
+# - name: Debug node-token status
+#   ansible.builtin.stat:
+#     path: /var/lib/rancher/k3s/server/node-token
+#   register: token_check
+#   when: inventory_hostname != groups[group_name_master][0]
+
+# - name: Debug - Check API connectivity from secondary nodes
+#   ansible.builtin.command:
+#     cmd: |
+#       curl -kvL https://{{ groups[group_name_master][0] }}:6443/healthz
+#       echo "---"
+#       netstat -tlpn | grep 6443
+#       echo "---"
+#       systemctl status k3s
+#   register: api_debug
+#   failed_when: false
+#   when: inventory_hostname != groups[group_name_master][0]
+
+# - name: Display API debug results
+#   ansible.builtin.debug:
+#     msg: "{{ api_debug.stdout_lines }}"
+#   when: inventory_hostname != groups[group_name_master][0]
+
+# - name: Debug - Network connectivity to first master
+#   ansible.builtin.shell: |
+#     # Test basic connectivity
+#     ping -c 1 {{ groups[group_name_master][0] }}
+#     echo "---"
+#     # Test TCP connection
+#     nc -zv {{ groups[group_name_master][0] }} 6443 2>&1 || echo "Connection failed"
+#     echo "---"
+#     # Check route
+#     ip route get {{ groups[group_name_master][0] }}
+#   register: network_debug
+#   failed_when: false
+#   when: inventory_hostname != groups[group_name_master][0]
+
+# - name: Display network debug results
+#   ansible.builtin.debug:
+#     msg: "{{ network_debug.stdout_lines }}"
+#   when: inventory_hostname != groups[group_name_master][0]
+
+# - name: Debug - Display token value
+#   ansible.builtin.debug:
+#     msg: "Token value: {{ hostvars[groups[group_name_master][0]]['token'] | default('not set') }}"
+#   when: inventory_hostname != groups[group_name_master][0]
+
+# - name: Wait for token to be available
+#   ansible.builtin.wait_for:
+#     timeout: 30
+#   when: hostvars[groups[group_name_master][0]]['token'] is not defined
+
+# - name: Cleanup failed join
+#   ansible.builtin.shell: |
+#     systemctl stop k3s
+#     rm -rf /var/lib/rancher/k3s/server
+#     rm -rf /etc/rancher/k3s
+#   when: k3s_service_result is failed
+#   ignore_errors: true
+
+- name: Wait for API server to be available
+  ansible.builtin.wait_for:
+    host: "{{ apiserver_endpoint }}"
+    port: 6443
+    timeout: 600
+  retries: 10
+  delay: 30
+  when: inventory_hostname != groups[group_name_master][0]
+
+- name: Verify API endpoint configuration
+  ansible.builtin.assert:
+    that:
+      - apiserver_endpoint is defined
+      - apiserver_endpoint | length > 0
+    fail_msg: "API server endpoint is not properly configured"
+  when: inventory_hostname != groups[group_name_master][0]
+
+- name: Verify initial master is ready
+  ansible.builtin.shell: |
+    curl -k https://{{ apiserver_endpoint }}:6443/healthz || true
+    echo "---"
+    curl -k https://{{ apiserver_endpoint }}:6443/readyz || true
+    echo "---"
+    netstat -tlpn | grep 6443 || true
+  register: master_check
+  until: master_check.rc == 0 and master_check.stdout.find('ok') != -1
+  retries: 30
+  delay: 10
+  when: inventory_hostname != groups[group_name_master][0]
+
+# - name: Debug master verification
+#   ansible.builtin.debug:
+#     msg: |
+#       Verification output:
+#       {{ master_check.stdout_lines | default([]) }}
+#       Return code: {{ master_check.rc | default('N/A') }}
+#       Error: {{ master_check.stderr_lines | default([]) }}
+#   when: 
+#     - inventory_hostname != groups[group_name_master][0]
+#     - master_check is defined
+
+- name: Fail if initial master is not ready
+  ansible.builtin.fail:
+    msg: "Initial master node is not ready after maximum retries"
+  when: 
+    - inventory_hostname != groups[group_name_master][0]
+    - api_status.status is not defined or api_status.status != 200
 

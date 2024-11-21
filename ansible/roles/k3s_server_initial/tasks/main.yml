@@ -1,0 +1,580 @@
+# ---
+- name: Set k3s_node_ip
+  ansible.builtin.set_fact:
+    k3s_node_ip: "10.77.250.211"
+  when: inventory_hostname == groups[group_name_master][0]
+
+- name: Gather facts
+  ansible.builtin.setup:
+
+- name: Debug ansible_facts
+  ansible.builtin.debug:
+    var: ansible_facts
+
+# - name: Debug flannel_iface
+#   ansible.builtin.debug:
+#     msg: "flannel_iface is {{ flannel_iface }}"
+
+- name: Debug k3s_node_ip
+  ansible.builtin.debug:
+    msg: "k3s_node_ip is {{ k3s_node_ip | default('not defined') }}"
+  
+- name: Verify k3s server configuration
+  ansible.builtin.assert:
+    that:
+      - k3s_server is defined
+      - k3s_control_plane is defined
+      - group_name_master is defined
+    fail_msg: "Required k3s server variables are not defined"
+
+- name: Complete k3s cleanup
+  block:
+    - name: Stop k3s services
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: stopped
+      loop:
+        - k3s
+        - k3s-init
+      failed_when: false
+
+    - name: Reset failed systemd services
+      ansible.builtin.command: systemctl reset-failed {{ item }}
+      loop:
+        - k3s
+        - k3s-init
+      failed_when: false
+      changed_when: false
+
+    - name: Clean k3s directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /var/lib/rancher/k3s
+        - /etc/rancher/k3s
+        - /var/lib/kubelet
+        - /etc/kubernetes
+      ignore_errors: true
+
+    - name: Wait for cleanup
+      ansible.builtin.pause:
+        seconds: 5
+
+    - name: Initialize k3s cluster with transient service
+      ansible.builtin.command:
+        cmd: >-
+          systemd-run -p RestartSec=2 -p Restart=on-failure --unit=k3s-init
+          k3s server
+          --cluster-init
+          --tls-san {{ apiserver_endpoint }}
+          --node-ip={{ k3s_node_ip }}
+          --advertise-address={{ k3s_node_ip }}
+      when: inventory_hostname == groups[group_name_master][0]
+
+    - name: Wait for API to be available
+      ansible.builtin.wait_for:
+        host: "{{ k3s_node_ip }}"
+        port: 6443
+        timeout: 180
+      when: inventory_hostname == groups[group_name_master][0]
+  when: inventory_hostname == groups[group_name_master][0]
+
+- name: Check if port 6443 is in use
+  ansible.builtin.wait_for:
+    port: 6443
+    state: stopped
+    timeout: 5
+  when: inventory_hostname != groups[group_name_master][0]
+  ignore_errors: true
+  register: port_check
+
+- name: Fail if port is in use
+  ansible.builtin.fail:
+    msg: "Port 6443 is already in use on {{ inventory_hostname }}"
+  when: 
+    - inventory_hostname != groups[group_name_master][0]
+    - port_check.state is defined
+    - port_check.state != "stopped"
+
+- name: Stop k3s-init
+  ansible.builtin.systemd:
+    name: k3s-init
+    state: stopped
+  failed_when: false
+
+# k3s-init won't work if the port is already in use
+- name: Stop k3s
+  ansible.builtin.systemd:
+    name: k3s
+    state: stopped
+  become: true
+  failed_when: false
+
+- name: Clean previous runs of k3s-init # noqa command-instead-of-module
+  # The systemd module does not support "reset-failed", so we need to resort to command.
+  ansible.builtin.command: systemctl reset-failed k3s-init
+  become: true
+  failed_when: false
+  changed_when: false
+
+- name: Init cluster inside the transient k3s-init service
+  ansible.builtin.command:
+    cmd: systemd-run -p RestartSec=2 -p Restart=on-failure --unit=k3s-init k3s server --cluster-init {{ server_init_args | default('') }}
+    creates: "{{ systemd_dir }}/k3s-init.service"
+  register: init_result
+  when: inventory_hostname == groups[group_name_master][0]
+  failed_when: 
+    - init_result.rc != 0
+    - "'already exists' not in init_result.stderr"
+
+- name: Deploy K3s http_proxy conf
+  ansible.builtin.include_tasks: http_proxy.yml
+  when: proxy_env is defined
+
+- name: Deploy vip manifest
+  ansible.builtin.include_tasks: vip.yml
+  
+- name: Deploy metallb manifest
+  ansible.builtin.include_tasks: metallb.yml
+  tags: metallb
+  when: 
+    - kube_vip_lb_ip_range is not defined 
+    - (cilium_bgp is not defined or not cilium_bgp) or (cilium_iface is not defined)
+
+- name: Deploy kube-vip manifest
+  ansible.builtin.include_tasks: kube-vip.yml
+  tags: kubevip
+  when: kube_vip_lb_ip_range is defined
+
+- name: Download k3s binary
+  ansible.builtin.get_url:
+    url: https://github.com/k3s-io/k3s/releases/download/{{ k3s_version }}/k3s
+    dest: /usr/local/bin/k3s
+    mode: "0755"
+    owner: root
+    group: root
+  when: not ansible_check_mode
+  become: true
+
+- name: Verify k3s binary
+  ansible.builtin.stat:
+    path: /usr/local/bin/k3s
+  register: k3s_binary
+
+- name: Fail if k3s binary not found
+  ansible.builtin.fail:
+    msg: "k3s binary not found at /usr/local/bin/k3s"
+  when: not k3s_binary.stat.exists
+
+- name: Wait for k3s-init API to be ready
+  ansible.builtin.wait_for:
+    host: "127.0.0.1"
+    port: 6443
+    timeout: 180
+  when: inventory_hostname == groups[group_name_master][0]
+
+- name: Copy K3s service file
+  register: k3s_service
+  ansible.builtin.template:
+    src: k3s.service.j2
+    dest: "{{ systemd_dir }}/k3s.service"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Check for processes using port 6443
+  ansible.builtin.shell: lsof -t -i:6443
+  register: port_processes
+  failed_when: false
+  changed_when: false
+  ignore_errors: true
+
+- name: Kill processes using port 6443
+  ansible.builtin.command: kill -9 {{ item }}
+  with_items: "{{ port_processes.stdout_lines }}"
+  when: port_processes.stdout != ""
+  ignore_errors: true
+
+- name: Wait for port 6443 to be free
+  ansible.builtin.wait_for:
+    port: 6443
+    state: stopped
+    timeout: 30
+  when: port_processes.stdout != ""
+
+- name: Kill any remaining k3s processes
+  ansible.builtin.command: pkill -9 -f "k3s/data/[^/]+/bin/containerd-shim-runc"
+  register: pkill_containerd_shim_runc
+  changed_when: pkill_containerd_shim_runc.rc == 0
+  failed_when: false
+  ignore_errors: true
+
+- name: Wait for processes to die
+  ansible.builtin.pause:
+    seconds: 5
+  when: pkill_containerd_shim_runc.changed
+
+- name: Enable and start K3s service
+  ansible.builtin.systemd:
+    name: k3s
+    daemon_reload: true
+    state: restarted
+    enabled: true
+  register: k3s_service_result
+  ignore_errors: true
+
+- name: Debug k3s service status
+  ansible.builtin.command: systemctl status k3s
+  register: k3s_status
+  when: k3s_service_result is failed
+  ignore_errors: true
+
+- name: Debug k3s service logs
+  ansible.builtin.command: journalctl -xeu k3s.service --no-pager -n 50
+  register: k3s_logs
+  when: k3s_service_result is failed
+
+- name: Display debug information
+  ansible.builtin.debug:
+    msg: |
+      K3s Service Status: {{ k3s_status.stdout }}
+      K3s Service Logs: {{ k3s_logs.stdout }}
+  when: k3s_service_result is failed
+
+- name: Fail if k3s service failed to start
+  ansible.builtin.fail:
+    msg: "K3s service failed to start. Check the logs above for details."
+  when: k3s_service_result is failed
+
+- name: Wait for initial master API to be ready
+  ansible.builtin.wait_for:
+    host: "{{ apiserver_endpoint }}"
+    port: 6443
+    timeout: 180
+  when: inventory_hostname == groups[group_name_master][0]
+
+- name: Create directory .kube
+  ansible.builtin.file:
+    path: "{{ ansible_user_dir }}/.kube"
+    state: directory
+    owner: "{{ ansible_user_id }}"
+    mode: u=rwx,g=rx,o=
+
+- name: Set permissions for k3s.yaml
+  ansible.builtin.file:
+    path: /etc/rancher/k3s/k3s.yaml
+    mode: "0644"
+    owner: root
+    group: root
+  become: true
+  when: inventory_hostname == groups[group_name_master][0]
+
+- name: Copy config file to user home directory
+  ansible.builtin.copy:
+    src: /etc/rancher/k3s/k3s.yaml
+    dest: "{{ ansible_user_dir }}/.kube/config"
+    remote_src: true
+    owner: "{{ ansible_user_id }}"
+    mode: u=rw,g=,o=
+
+- name: Configure kubectl cluster to {{ endpoint_url }}
+  ansible.builtin.command: >-
+    {{ k3s_kubectl_binary | default('k3s kubectl') }} config set-cluster default
+      --server={{ endpoint_url }}
+      --kubeconfig {{ ansible_user_dir }}/.kube/config
+  changed_when: true
+  vars:
+    endpoint_url: >-
+      https://{{ apiserver_endpoint | ansible.utils.ipwrap }}:6443
+# Deactivated linter rules:
+#   - jinja[invalid]: As of version 6.6.0, ansible-lint complains that the input to ipwrap
+#                     would be undefined. This will not be the case during playbook execution.
+# noqa jinja[invalid]
+
+- name: Create kubectl symlink
+  ansible.builtin.file:
+    src: /usr/local/bin/k3s
+    dest: /usr/local/bin/kubectl
+    state: link
+  when: k3s_create_kubectl_symlink | default(true) | bool
+
+# - name: Capture k3s service logs
+#   ansible.builtin.command:
+#     cmd: journalctl -u k3s.service
+#   register: k3s_service_logs
+#   ignore_errors: true
+
+# - name: Save k3s service logs to file
+#   ansible.builtin.copy:
+#     content: "{{ k3s_service_logs.stdout }}"
+#     dest: "/tmp/k3s_service_logs_{{ inventory_hostname }}.log"
+#   when: k3s_service_logs is defined
+
+# - name: Fetch k3s service logs for analysis
+#   ansible.builtin.fetch:
+#     src: "/tmp/k3s_service_logs_{{ inventory_hostname }}.log"
+#     dest: "./logs/"
+#     flat: yes
+#   when: k3s_service_logs is defined
+
+- name: Wait for node-token
+  ansible.builtin.wait_for:
+    path: /var/lib/rancher/k3s/server/node-token
+
+- name: Create crictl symlink
+  ansible.builtin.file:
+    src: /usr/local/bin/k3s
+    dest: /usr/local/bin/crictl
+    state: link
+  when: k3s_create_crictl_symlink | default(true) | bool
+
+- name: Register node-token file access mode
+  ansible.builtin.stat:
+    path: /var/lib/rancher/k3s/server
+  register: p
+  when: k3s_create_crictl_symlink | default(true) | bool
+
+- name: Change file access node-token
+  ansible.builtin.file:
+    path: /var/lib/rancher/k3s/server/node-token
+    mode: g+rx,o+rx
+  become: true
+
+- name: Read node-token from master
+  ansible.builtin.slurp:
+    src: /var/lib/rancher/k3s/server/node-token
+  register: node_token
+
+- name: Store Master node-token
+  ansible.builtin.set_fact:
+    token: "{{ node_token.content | b64decode | regex_replace('\n', '') }}"
+
+- name: Get contents of manifests folder
+  ansible.builtin.find:
+    paths: /var/lib/rancher/k3s/server/manifests
+    file_type: file
+  register: k3s_server_manifests
+  ignore_errors: true
+
+- name: Get sub dirs of manifests folder
+  ansible.builtin.find:
+    paths: /var/lib/rancher/k3s/server/manifests
+    file_type: directory
+  register: k3s_server_manifests_directories
+
+- name: Remove manifests and folders that are only needed for bootstrapping cluster so k3s doesn't auto apply on start
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  with_items:
+    - "{{ k3s_server_manifests.files }}"
+    - "{{ k3s_server_manifests_directories.files }}"
+  loop_control:
+    label: "{{ item.path }}"
+
+- name: Restore node-token file access
+  ansible.builtin.file:
+    path: /var/lib/rancher/k3s/server
+    mode: "{{ p.stat.mode }}"
+
+#- name: Verification
+#  when: not ansible_check_mode and inventory_hostname in groups[group_name_master]
+#  block:
+#    - name: Verify that all nodes actually joined
+#      ansible.builtin.command:
+#        cmd: "{{ k3s_kubectl_binary | default('k3s kubectl') }} get nodes -l 'node-role.kubernetes.io/control-plane=true' -o=jsonpath='{.items[*].metadata.name}'"
+#      register: nodes
+#      until: nodes.rc == 0 and (nodes.stdout.split() | length) == (groups[group_name_master] | length + groups['master'] | length)
+#      retries: "{{ retry_count | default(30) }}"
+#      delay: 60
+#      changed_when: false
+#  always:
+#    - name: Save logs of k3s-init.service
+#      ansible.builtin.include_tasks: fetch_k3s_init_logs.yml
+#      when: log_destination
+#      vars:
+#        log_destination: "{{ lookup('ansible.builtin.env', 'ANSIBLE_K3S_LOG_DIR', default=False) }}"
+#    - name: Kill the temporary service used for initialization
+#      ansible.builtin.systemd:
+#        name: k3s-init
+#        state: stopped
+#      failed_when: false
+
+- name: Verify initial master health
+  ansible.builtin.command:
+    cmd: k3s kubectl get --raw='/healthz'
+  register: health_check
+  until: health_check.rc == 0
+  retries: 30
+  delay: 10
+  when: inventory_hostname == groups[group_name_master][0]
+      
+- name: Verify etcd cluster health on first master
+  ansible.builtin.shell: |
+    k3s kubectl get --raw='/healthz/etcd'
+    echo "---"
+    k3s etcd-snapshot ls 2>/dev/null || echo "Etcd not ready"
+  register: etcd_health
+  until: etcd_health.rc == 0 and etcd_health.stdout.find('ok') != -1
+  retries: 30
+  delay: 10
+  when: inventory_hostname == groups[group_name_master][0]
+
+- name: Verify certificate generation
+  block:
+    - name: Wait for certificate generation
+      ansible.builtin.wait_for:
+        path: "{{ item }}"
+        state: present
+        timeout: 60
+      loop:
+        - /var/lib/rancher/k3s/server/tls/server-ca.crt
+        - /var/lib/rancher/k3s/server/tls/server-ca.key
+        - /var/lib/rancher/k3s/server/tls/client-ca.crt
+        - /var/lib/rancher/k3s/server/tls/client-ca.key
+
+    - name: Verify certificate validity period
+      ansible.builtin.shell: |
+        for cert in server-ca.crt client-ca.crt; do
+          echo "Verifying certificate: $cert"
+          cert_path="/var/lib/rancher/k3s/server/tls/$cert"
+          
+          # Ensure file exists and is readable
+          if [ ! -r "$cert_path" ]; then
+            echo "Certificate $cert not readable"
+            exit 1
+          fi
+          
+          # Get validity dates directly
+          dates=$(openssl x509 -in "$cert_path" -noout -dates)
+          if [ $? -ne 0 ]; then
+            echo "Failed to read certificate dates"
+            exit 1
+          fi
+          
+          start_date=$(echo "$dates" | grep notBefore | cut -d= -f2)
+          end_date=$(echo "$dates" | grep notAfter | cut -d= -f2)
+          
+          # Calculate years difference using seconds since epoch
+          start_epoch=$(date -d "$start_date" +%s)
+          end_epoch=$(date -d "$end_date" +%s)
+          years=$(( (end_epoch - start_epoch) / (365*24*60*60) ))
+          
+          if [ $years -lt 9 ]; then
+            echo "Certificate $cert validity period is less than 9 years"
+            exit 1
+          fi
+          
+          echo "Certificate $cert is valid with correct validity period"
+        done
+      register: cert_verification
+      failed_when: cert_verification.rc != 0
+      changed_when: false
+      become: true
+
+    - name: Debug certificate generation
+      ansible.builtin.shell: |
+        echo "=== Certificate Contents ==="
+        for cert in server-ca.crt client-ca.crt; do
+          echo "=== $cert ==="
+          openssl x509 -in /var/lib/rancher/k3s/server/tls/$cert -noout -text || echo "Failed to read certificate"
+        done
+        echo "=== File Permissions ==="
+        ls -l /var/lib/rancher/k3s/server/tls/
+        echo "=== K3s Service Status ==="
+        systemctl status k3s || true
+        echo "=== K3s Logs ==="
+        journalctl -u k3s --no-pager -n 50 || true
+      register: cert_debug
+      when: cert_verification is failed
+      become: true
+
+    - name: Display certificate debug information
+      ansible.builtin.debug:
+        msg: "{{ cert_debug.stdout_lines }}"
+      when: cert_verification is failed
+  when: inventory_hostname == groups[group_name_master][0]
+
+- name: Enhanced certificate debugging
+  block:
+    - name: Check certificate file permissions and ownership
+      ansible.builtin.stat:
+        path: "/var/lib/rancher/k3s/server/tls/{{ item }}"
+      loop:
+        - server-ca.crt
+        - server-ca.key
+        - client-ca.crt
+        - client-ca.key
+      register: cert_perms
+
+    - name: Display certificate permissions
+      ansible.builtin.debug:
+        msg: "{{ item.item }}: mode={{ item.stat.mode }}, owner={{ item.stat.pw_name }}"
+      loop: "{{ cert_perms.results }}"
+
+    - name: Verify certificate validity
+      ansible.builtin.shell: |
+        for cert in server-ca.crt client-ca.crt; do
+          echo "=== Verifying $cert ==="
+          openssl verify -CAfile /var/lib/rancher/k3s/server/tls/$cert /var/lib/rancher/k3s/server/tls/$cert
+          openssl x509 -in /var/lib/rancher/k3s/server/tls/$cert -text -noout | grep "Not After"
+        done
+      register: cert_validity
+
+- name: Debug - Check certificate files
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - /var/lib/rancher/k3s/server/tls/client-ca.crt
+    - /var/lib/rancher/k3s/server/tls/client-ca.key
+    - /var/lib/rancher/k3s/server/tls/server-ca.crt
+    - /var/lib/rancher/k3s/server/tls/server-ca.key
+  register: cert_files
+  when: inventory_hostname == groups[group_name_master][0]
+
+- name: Display certificate status
+  ansible.builtin.debug:
+    msg: "Certificate file {{ item.item }} exists: {{ item.stat.exists }}"
+  loop: "{{ cert_files.results }}"
+  when: inventory_hostname == groups[group_name_master][0]
+
+- name: Debug - Verify API endpoint on first master
+  ansible.builtin.shell: |
+    netstat -tlpn | grep 6443
+    echo "---"
+    k3s kubectl get --raw='/readyz'
+    echo "---"
+    k3s kubectl get nodes
+  register: master_debug
+  when: inventory_hostname == groups[group_name_master][0]
+
+- name: Display first master debug info
+  ansible.builtin.debug:
+    msg: "{{ master_debug.stdout_lines }}"
+  when: inventory_hostname == groups[group_name_master][0]
+
+- name: Debug - Comprehensive API endpoint check on first master
+  ansible.builtin.shell: |
+    # Check API binding
+    ss -tlnp | grep 6443 || echo "No process listening on 6443"
+    echo "---"
+    # Check firewall
+    iptables -L -n | grep 6443 || echo "No firewall rules for 6443"
+    echo "---"
+    # Check k3s service status
+    systemctl status k3s --no-pager
+    echo "---"
+    # Check API server logs
+    journalctl -u k3s -n 50 --no-pager | grep -i "api"
+  register: api_debug
+  become: true
+  when: inventory_hostname == groups[group_name_master][0]
+
+- name: Display API debug results
+  ansible.builtin.debug:
+    msg: "{{ api_debug.stdout_lines }}"
+  when: inventory_hostname == groups[group_name_master][0]
+
+
+

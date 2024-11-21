@@ -1,0 +1,25 @@
+- name: Initialize k3s cluster
+  ansible.builtin.command:
+    cmd: "k3s server --cluster-init"
+  when: inventory_hostname == groups[group_name_master][0]
+
+- name: Wait for k3s-init API to be ready
+  ansible.builtin.wait_for:
+    host: "127.0.0.1"
+    port: 6443
+    timeout: 180
+  when: inventory_hostname == groups[group_name_master][0]
+
+- name: Enable and check k3s service
+  ansible.builtin.systemd:
+    name: k3s
+    state: started
+    enabled: yes
+  register: k3s_service_status
+
+- name: Wait for k3s API to be ready
+  ansible.builtin.wait_for:
+    host: "{{ ansible_host | default(inventory_hostname) }}"
+    port: 6443
+    timeout: 300
+  when: k3s_service_status is success 
