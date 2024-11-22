@@ -1,0 +1,39 @@
+- name: Debug K3s and API
+  hosts: master
+  tasks:
+    - name: Debug group_name_master
+      ansible.builtin.debug:
+        msg: "group_name_master is {{ group_name_master | default('not defined') }}"
+
+    - name: Check k3s service status
+      ansible.builtin.systemd:
+        name: k3s
+        state: started
+      register: k3s_service_result
+
+    - name: Debug k3s service logs
+      ansible.builtin.command: journalctl -xeu k3s.service --no-pager -n 50
+      register: k3s_logs
+      when: k3s_service_result is failed
+
+    - name: Display debug information
+      ansible.builtin.debug:
+        msg: |
+          K3s Service Status: {{ k3s_service_result }}
+          K3s Service Logs: {{ k3s_logs.stdout }}
+      when: k3s_service_result is failed
+
+    - name: Debug - Verify API endpoint on first master
+      ansible.builtin.shell: |
+        netstat -tlpn | grep 6443
+        echo "---"
+        k3s kubectl get --raw='/readyz'
+        echo "---"
+        k3s kubectl get nodes
+      register: master_debug
+      when: inventory_hostname == groups[group_name_master][0]
+
+    - name: Display first master debug info
+      ansible.builtin.debug:
+        msg: "{{ master_debug.stdout_lines }}"
+      when: inventory_hostname == groups[group_name_master][0]
