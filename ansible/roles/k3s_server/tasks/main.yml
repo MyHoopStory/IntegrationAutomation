@@ -12,6 +12,12 @@
       - group_name_master is defined
     fail_msg: "Required k3s server variables are not defined"
 
+# - name: Install K3s
+#   ansible.builtin.shell: |
+#     curl -sfL https://get.k3s.io | sh -
+#   register: k3s_install
+#   changed_when: k3s_install is changed
+
 - name: Ensure clean k3s state for secondary nodes
   block:
     - name: Stop k3s services
@@ -146,7 +152,7 @@
 - name: Create k3s server directory structure on secondary masters
   ansible.builtin.file:
     path: /var/lib/rancher/k3s/server
-    state: directory
+    state: directory   
     mode: '0755'
     owner: root
     group: root
@@ -245,6 +251,12 @@
     server_ip: "{{ groups[group_name_master][0] }}"
     etcd_ip: "{{ groups[group_name_master][0] }}"
   when: inventory_hostname != groups[group_name_master][0]
+
+- name: Start K3s service
+  ansible.builtin.systemd:
+    name: k3s
+    state: started
+    enabled: true
 
 # - name: Debug k3s service status
 #   ansible.builtin.command: systemctl status k3s

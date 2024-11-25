@@ -4,12 +4,12 @@
     k3s_node_ip: "10.77.250.211"
   when: inventory_hostname == groups[group_name_master][0]
 
-- name: Gather facts
-  ansible.builtin.setup:
+# - name: Gather facts
+#   ansible.builtin.setup:
 
-- name: Debug ansible_facts
-  ansible.builtin.debug:
-    var: ansible_facts
+# - name: Debug ansible_facts
+#   ansible.builtin.debug:
+#     var: ansible_facts
 
 # - name: Debug flannel_iface
 #   ansible.builtin.debug:
